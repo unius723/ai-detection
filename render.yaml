@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: ai-detection
+    runtime: node
+    repo: https://github.com/unius723/ai-detection
+    branch: main
+    region: singapore
+    plan: 0.5c-512mb
+    numInstances: 1
+    buildCommand: node --check server.js
+    startCommand: node server.js
+    healthCheckPath: /api/config
+    autoDeployTrigger: "off"
+    envVars:
+      - key: NODE_VERSION
+        value: "24.22.1"
+      - key: NODE_ENV
+        value: production
+      - key: BIND_HOST
+        value: 0.0.0.0
+      - key: DATA_DIR
+        value: /var/data
+      - key: ADMIN_PASSWORD
+        generateValue: true
+    disk:
+      name: study-data
+      mountPath: /var/data
+      sizeGB: 1
