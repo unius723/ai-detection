@@ -1,0 +1,10 @@
+data/
+node_modules/
+.env
+.env.*
+!.env.example
+.DS_Store
+.idea/
+*.log
+github-upload/
+github-upload.zip

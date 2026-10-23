@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Study dashboard</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#F6F6F7;color:#0F1115;font:14px/1.5 -apple-system,"Segoe UI",Roboto,system-ui,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 20px 60px}
+h1{font-size:24px;font-weight:300;margin:0}
+.bar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+.bar div{display:flex;gap:8px;flex-wrap:wrap}
+a.b,button{font:inherit;padding:8px 14px;border:1px solid #CBD0D6;border-radius:8px;background:#fff;color:#0F1115;text-decoration:none;cursor:pointer}
+a.b:hover,button:hover{border-color:#0F1115}
+button.delete{color:#B42318;border-color:#F1B8B3;padding:5px 10px}
+button.delete:hover{background:#FFF1F0;border-color:#B42318}
+button:disabled{opacity:.5;cursor:wait}
+#notice{min-height:21px;margin:0 0 12px;color:#14532D}
+#notice.error{color:#B42318}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.s{background:#fff;border:1px solid #E3E5E8;border-radius:12px;padding:14px 16px}
+.s span{color:#5B616B;font-size:12px}.s b{display:block;font-size:26px;font-weight:300}
+.tw{background:#fff;border:1px solid #E3E5E8;border-radius:12px;overflow:auto}
+table{width:100%;border-collapse:collapse;white-space:nowrap}
+th,td{padding:10px 12px;border-bottom:1px solid #E3E5E8;text-align:left}
+th{font-size:12px;color:#5B616B;font-weight:500;position:sticky;top:0;background:#fff}
+tr.p{cursor:pointer}tr.p:hover{background:#F6F6F7}
+.tag{padding:2px 8px;border-radius:999px;font-size:12px;background:#E3E5E8}.tag.ok{background:#DCF5E4;color:#14532D}
+td.in{background:#FAFAFB;padding:0}
+td.in table{font-size:13px}td.in td{white-space:normal;max-width:360px}
+.mute{color:#5B616B}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar"><h1>Study dashboard</h1>
+    <div><button id="rf">Refresh</button><a class="b" href="/admin/participants.csv">Participants CSV</a><a class="b" href="/admin/trials.csv">Trials CSV</a></div></div>
+  <div class="stats" id="stats"></div>
+  <p id="notice" role="status" aria-live="polite"></p>
+  <div class="tw"><table><thead><tr><th>ID</th><th>Major</th><th>Status</th><th>Started</th><th>Duration</th><th>Done</th><th>Accuracy</th><th>Colour</th><th>Gray</th><th>Portrait</th><th>Landscape</th><th>Estimate</th><th>Gap</th><th>Actions</th></tr></thead><tbody id="tb"></tbody></table></div>
+  <p class="mute">Click a row to see every trial, including written reasons. Data refreshes every 15 seconds.</p>
+</div>
+<script>
+const $ = s => document.querySelector(s);
+const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+const pc = v => v == null ? '–' : Math.round(v * 100) + '%';
+const dur = s => s == null ? '–' : Math.floor(s / 60) + 'm ' + String(s % 60).padStart(2, '0') + 's';
+const avg = a => a.length ? a.reduce((s, x) => s + x, 0) / a.length : null;
+const open = new Set();
+let deleting = false, loadVersion = 0;
+function notice(message, error = false) { $('#notice').textContent = message; $('#notice').className = error ? 'error' : ''; }
+async function removeParticipant(q) {
+  if (deleting || !confirm(`Permanently delete ${q.pid} and all ${q.trials.length} trial records? This cannot be undone.`)) return;
+  deleting = true; loadVersion++;
+  document.querySelectorAll('button.delete').forEach(b => b.disabled = true);
+  notice(`Deleting ${q.pid}…`);
+  try {
+    const r = await fetch('/admin/participants/' + encodeURIComponent(q.pid), { method: 'DELETE', headers: { 'X-Study-Admin': '1' } });
+    if (!r.ok && r.status !== 404) throw new Error('Delete failed (' + r.status + '). Please try again.');
+    open.delete(q.pid); notice(`${q.pid} has been deleted.`);
+    deleting = false; await load();
+  } catch (e) { notice(e.message || 'Delete failed. Please check your connection and try again.', true); }
+  finally { deleting = false; document.querySelectorAll('button.delete').forEach(b => b.disabled = false); }
+}
+async function load() {
+  if (deleting) return;
+  const version = ++loadVersion;
+  try {
+  const r = await fetch('/admin/data', { cache: 'no-store' }); if (!r.ok) throw new Error('Could not refresh records (' + r.status + ').');
+  const d = (await r.json()).reverse();
+  if (deleting || version !== loadVersion) return;
+  const ok = d.filter(x => x.status === 'completed');
+  const gaps = ok.map(x => x.gapPercent).filter(x => x != null);
+  $('#stats').replaceChildren(...[
+    ['Started', d.length], ['Completed', ok.length], ['Avg duration', dur(Math.round(avg(ok.map(x => x.durationSec)) || 0) || null)],
+    ['Mean accuracy', pc(avg(ok.map(x => x.accAll)))], ['Colour / Gray', pc(avg(ok.map(x => x.accColor))) + ' / ' + pc(avg(ok.map(x => x.accGray)))],
+    ['Mean over-estimate (pp)', gaps.length ? (avg(gaps) > 0 ? '+' : '') + avg(gaps).toFixed(1) : '–']
+  ].map(([k, v]) => { const s = el('div', 's'); s.append(el('span', '', k), el('b', '', v)); return s; }));
+  const tb = $('#tb'); tb.replaceChildren();
+  for (const q of d) {
+    const tr = el('tr', 'p'), st = el('span', 'tag' + (q.status === 'completed' ? ' ok' : ''), q.status);
+    const c0 = el('td'); c0.textContent = q.pid; const c2 = el('td'); c2.append(st);
+    tr.append(c0, el('td', '', q.major), c2, el('td', '', new Date(q.startedAt).toLocaleString()), el('td', '', dur(q.durationSec)),
+      el('td', '', q.trials.length + '/' + q.total), el('td', '', pc(q.accAll)), el('td', '', pc(q.accColor)), el('td', '', pc(q.accGray)),
+      el('td', '', pc(q.accPortrait)), el('td', '', pc(q.accLandscape)), el('td', '', q.estimatePercent == null ? '–' : +q.estimatePercent.toFixed(1) + '%'),
+      el('td', '', q.gapPercent == null ? '–' : (q.gapPercent > 0 ? '+' : '') + q.gapPercent + ' pp'));
+    const actions = el('td'), del = el('button', 'delete', 'Delete'); del.type = 'button'; del.setAttribute('aria-label', 'Delete ' + q.pid);
+    del.onclick = e => { e.stopPropagation(); removeParticipant(q); }; actions.append(del); tr.append(actions);
+    tb.append(tr);
+    const dt = el('tr'), td = el('td', 'in'); td.colSpan = 14; dt.append(td); dt.hidden = !open.has(q.pid); tb.append(dt);
+    const t = el('table'), h = el('tr');
+    ['#', 'Image', 'Colour', 'Truth', 'Response', 'Correct', 'Conf.', 'RT (s)', 'Reason'].forEach(x => h.append(el('th', '', x))); t.append(h);
+    q.trials.forEach(x => { const r = el('tr'); [x.trial, x.image, x.colour, x.truth, x.response, x.correct ? '✓' : '✗', x.confidence, (x.rt_total_ms / 1000).toFixed(1), x.reason].forEach(v => r.append(el('td', '', v))); t.append(r); });
+    td.append(t);
+    tr.onclick = () => { dt.hidden = !dt.hidden; dt.hidden ? open.delete(q.pid) : open.add(q.pid); };
+  }
+  if (!d.length) { const tr = el('tr'), td = el('td', 'mute', 'No participant records yet.'); td.colSpan = 14; tr.append(td); tb.append(tr); }
+  } catch (e) { if (!deleting && version === loadVersion) notice(e.message || 'Could not refresh records. Please check your connection.', true); }
+}
+$('#rf').onclick = load; load(); setInterval(load, 15000);
+</script>
+</body>
+</html>

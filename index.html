@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Image Judgement Study</title>
+<style>
+:root{--bg:#F6F6F7;--ink:#0F1115;--mute:#5B616B;--line:#E3E5E8;--acc:#2D3FE0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+header{height:50px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--mute)}
+header b{color:var(--ink);font-weight:600}
+.hair{height:2px;background:var(--line)}.hair i{display:block;height:2px;width:0;background:var(--ink);transition:width .25s}
+main{max-width:520px;margin:0 auto;padding:16px 20px 24px}
+main.wide{max-width:980px}
+h1{margin:0 0 10px;font-weight:300;font-size:clamp(27px,8vw,40px);line-height:1.15;letter-spacing:-.02em}
+h2{margin:0 0 8px;font-size:14px;font-weight:600}
+p{margin:0 0 14px;color:var(--mute);line-height:1.6;font-size:15px}
+label.f{display:block;font-size:13px;font-weight:600;margin-bottom:6px}
+input[type=text],textarea{width:100%;font:inherit;font-size:16px;color:var(--ink);padding:11px 13px;border:1px solid #CBD0D6;border-radius:10px;background:#fff}
+textarea{resize:none;height:72px;line-height:1.5}
+input[type=text]:focus,textarea:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 4px rgba(15,17,21,.08)}
+.chk{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;margin:14px 0 4px}
+input[type=checkbox]{width:20px;height:20px;margin:0;accent-color:var(--ink);flex:none}
+button{font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:3px solid #A9B2FF;outline-offset:2px}
+.btn,.opt,.pic img{transition:transform .18s ease,box-shadow .18s ease,background .18s ease,border-color .18s ease,opacity .4s ease}
+.btn{height:50px;width:100%;border:0;border-radius:12px;background:var(--ink);color:#fff;font-size:16px;font-weight:500;margin-top:10px}
+.btn:disabled{background:#B9BDC4;cursor:not-allowed}
+.btn:not(:disabled):hover{transform:translateY(-2px);box-shadow:0 12px 24px -12px rgba(15,17,21,.55)}
+.btn:not(:disabled):active{transform:scale(.985)}
+.btn svg{margin-left:8px;vertical-align:-2px;transition:transform .2s}.btn:not(:disabled):hover svg{transform:translateX(4px)}
+.link{background:none;border:0;padding:6px 0;color:var(--mute);font-size:14px;text-decoration:underline;text-underline-offset:3px}
+.err{color:#B42318;font-size:13px;min-height:18px;margin-top:8px}
+.enter{animation:rise .45s cubic-bezier(.2,.7,.2,1)}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.steps{display:none;gap:4px}.steps span{font-size:13px;padding:5px 12px;border-radius:999px}
+.steps span.on{background:var(--ink);color:#fff}.steps span.done{color:var(--ink)}
+.meta{display:flex;gap:14px;font-size:13px;color:var(--ink);margin:0 0 16px}
+.meta span+span::before{content:"·";margin-right:14px;color:var(--mute)}
+/* scan graphic */
+.scan{position:relative;margin:16px 0 4px;border-radius:14px;overflow:hidden;aspect-ratio:16/6;border:1px solid var(--line)}
+.scan svg{position:absolute;inset:0;width:100%;height:100%}
+.scan .g{filter:grayscale(1);animation:wipe 7s ease-in-out infinite alternate}
+@keyframes wipe{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+.scan .ln{position:absolute;top:0;bottom:0;width:2px;background:var(--ink);z-index:2;animation:ln 7s ease-in-out infinite alternate}
+@keyframes ln{from{left:0}to{left:calc(100% - 2px)}}
+.scan .tag{position:absolute;bottom:8px;z-index:2;font-size:11px;padding:2px 9px;border-radius:999px;background:rgba(255,255,255,.92)}
+/* trial */
+.stage{display:grid;gap:10px}
+.count{font-size:13px;color:var(--mute);margin-bottom:8px;font-variant-numeric:tabular-nums}
+.dots{display:flex;gap:3px;margin-bottom:10px}.dots i{flex:1;height:4px;border-radius:2px;background:var(--line);transition:background .25s,transform .25s}
+.dots i.d{background:var(--ink)}.dots i.c{background:var(--acc);transform:scaleY(2)}
+.pic{background:#E9EAEC;border:0;border-radius:14px;aspect-ratio:4/3;max-height:34dvh;width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;color:var(--mute);font-size:13px;text-align:center;padding:10px;cursor:zoom-in}
+.pic:disabled{cursor:wait}
+.zoom-hint{font-size:12px;text-align:center;margin-top:8px}
+#zoom{width:100vw;max-width:none;height:100dvh;max-height:none;margin:0;border:0;padding:64px 20px 24px;background:rgba(10,12,16,.96);overflow:hidden}
+#zoom[open]{display:flex;align-items:center;justify-content:center}
+body:has(#zoom[open]){overflow:hidden}
+#zoom img{width:100%;height:100%;object-fit:contain;pointer-events:none}
+#zoom-close{position:absolute;top:14px;right:20px;border:1px solid #999;border-radius:8px;background:#fff;color:var(--ink);padding:10px 16px}
+.pic img{width:100%;height:100%;object-fit:contain;opacity:0}.pic img.on{opacity:1}
+.sec{margin-bottom:12px}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.opt{height:52px;border:1px solid #CBD0D6;border-radius:12px;background:#fff;color:var(--ink);font-size:16px;font-weight:500}
+.opt:hover{border-color:var(--ink);transform:translateY(-2px)}.opt:active{transform:scale(.97)}
+.opt[aria-pressed=true]{background:var(--ink);border-color:var(--ink);color:#fff;animation:pop .24s ease}
+@keyframes pop{50%{transform:scale(1.05)}}
+.scale{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.scale .opt{height:44px}
+.ends{display:flex;justify-content:space-between;font-size:12px;color:var(--mute);margin-top:6px}
+.ends #cur{color:var(--ink);font-weight:500}
+.cnt{font-size:12px;color:var(--mute);text-align:right;margin-top:3px}
+@media(min-width:820px){.steps{display:flex}.stage{grid-template-columns:1.25fr 1fr;gap:48px;align-items:start}
+ .pic{max-height:none}.opt{height:62px}.scale .opt{height:50px}main{padding-top:36px}}
+/* estimate + results */
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:24px}
+.big{font-size:64px;font-weight:200;letter-spacing:-.03em;text-align:center;margin:4px 0 12px;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;height:32px;accent-color:var(--ink)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0}
+.stat{border-top:1px solid var(--ink);padding-top:10px;font-size:12px;color:var(--mute)}
+.stat b{display:block;font-size:30px;font-weight:200;color:var(--ink);margin-top:2px;white-space:nowrap}
+table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{padding:9px 4px;border-bottom:1px solid var(--line);text-align:right}th:first-child,td:first-child{text-align:left}
+th{font-weight:500;color:var(--mute);font-size:12px}
+.trk{height:6px;min-width:70px;background:var(--line);border-radius:3px;overflow:hidden}
+.trk i{display:block;height:6px;width:0;background:var(--ink);border-radius:3px;transition:width .9s cubic-bezier(.2,.7,.2,1)}
+.sync{font-size:12px;color:var(--mute);margin-top:14px;text-align:center}
+[hidden]{display:none!important}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}.scan .g{clip-path:inset(0 50% 0 0)}.scan .ln{left:50%}}
+</style>
+</head>
+<body>
+<header><b>Image Judgement Study</b>
+  <div class="steps" id="steps"><span>Start</span><span>Judge</span><span>Estimate</span><span>Done</span></div>
+  <span id="pidbox" hidden>ID <span id="pid"></span></span></header>
+<div class="hair"><i id="bar"></i></div>
+
+<main id="main">
+<section id="s1">
+  <h1>Real photo or AI image?</h1>
+  <div class="meta"><span id="image-total">Loading images…</span><span id="study-time"></span><span>Anonymous</span></div>
+  <label class="f" for="major">Your academic major</label>
+  <input type="text" id="major" maxlength="60" placeholder="e.g. Computer Science" autocomplete="off">
+  <div class="scan" id="sc" aria-hidden="true"><svg viewBox="0 0 800 300" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="sk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7FB2FF"/><stop offset="1" stop-color="#FFD9A8"/></linearGradient></defs><rect width="800" height="300" fill="url(#sk)"/><circle cx="600" cy="100" r="42" fill="#FF8A3D"/><path d="M0 220 L180 110 L300 190 L430 90 L620 220 L800 150 V300 H0Z" fill="#4C6FB5"/><path d="M0 255 Q200 190 400 245 T800 230 V300 H0Z" fill="#3E9B6B"/></svg><div class="ln"></div><span class="tag" style="left:10px">Grayscale</span><span class="tag" style="right:10px">Colour</span></div>
+  <label class="chk"><input type="checkbox" id="cons">I am 18 or older and a university student. I take part voluntarily and agree that my anonymous responses may be used for academic analysis.</label>
+  <button class="btn" id="start" disabled>Start</button>
+  <div class="err" id="err" role="alert"></div>
+</section>
+
+<section id="s2" hidden>
+  <div class="stage">
+    <div><div class="count" id="count"></div><div class="dots" id="dots"></div><button type="button" class="pic" id="pic" aria-label="Enlarge image" aria-haspopup="dialog" disabled></button><p class="zoom-hint">Click image to enlarge</p></div>
+    <div>
+      <div class="sec"><h2>This image is…</h2>
+        <div class="seg"><button class="opt" data-k="real" aria-pressed="false">Real photo</button><button class="opt" data-k="ai" aria-pressed="false">AI-generated</button></div></div>
+      <div class="sec"><h2>How confident are you?</h2>
+        <div class="scale" id="scale"></div>
+        <div class="ends"><span>Not at all</span><span id="cur"></span><span>Very</span></div></div>
+      <div class="sec"><button class="link" id="rtog" type="button">+ Add a reason (optional)</button>
+        <div id="rbox" hidden><textarea id="reason" maxlength="200" placeholder="What made you decide? (optional)"></textarea><div class="cnt"><span id="cn">0</span> / 200</div></div></div>
+      <button class="btn" id="next" disabled>Next</button>
+    </div>
+  </div>
+</section>
+
+<section id="s3" hidden><div class="card">
+  <h1 style="font-size:30px">One last question</h1>
+  <p>What percentage of the images do you think you classified correctly? Choose the closest estimate.</p>
+  <div class="scale" id="est" role="group" aria-label="Estimated percentage correct">
+    <button type="button" class="opt" data-est="0" aria-pressed="false">0%</button>
+    <button type="button" class="opt" data-est="25" aria-pressed="false">25%</button>
+    <button type="button" class="opt" data-est="50" aria-pressed="false">50%</button>
+    <button type="button" class="opt" data-est="75" aria-pressed="false">75%</button>
+    <button type="button" class="opt" data-est="100" aria-pressed="false">100%</button>
+  </div>
+  <button class="btn" id="submit" style="margin-top:20px" disabled>Submit</button></div></section>
+
+<section id="s4" hidden><div class="card">
+  <h1 style="font-size:30px">Thank you!</h1>
+  <p>This study compares how well people detect AI images with how well they think they do. To withdraw your data, contact [researcher email] with your ID <b id="pid2"></b>.</p>
+  <div class="stats"><div class="stat">Actual<b id="o_act"></b></div><div class="stat">Your guess<b id="o_est"></b></div><div class="stat">Difference (pp)<b id="o_gap"></b></div></div>
+  <table><thead><tr><th>Group</th><th>Correct</th><th></th><th>Acc.</th></tr></thead><tbody id="tbl"></tbody></table>
+  <div class="sync" id="sync"></div></div></section>
+</main>
+<dialog id="zoom" aria-label="Enlarged image">
+  <button type="button" id="zoom-close" autofocus>Close ×</button>
+  <img id="zoom-image" alt="Enlarged study image">
+</dialog>
+
+<script>
+/* ===== Config ===== */
+let stimuli=[], configReady=false;
+const $=s=>document.querySelector(s), H={'Content-Type':'application/json'};
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+const ARR='<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg>';
+$('#start').insertAdjacentHTML('beforeend',ARR);
+
+/* Randomize within each category/authenticity group before assigning colour.
+   With the current 6 real + 6 AI portraits, each group gets 3 colour / 3 gray.
+   Realism stays blank until the researcher explicitly labels it. */
+function makePlan(){
+  const out=[],groups=new Map();
+  for(const s of stimuli){const key=s.cat+':'+s.truth;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(s);}
+  let extraColor=Math.random()<.5;
+  for(const group of groups.values()){
+    const shuffled=shuffle([...group]),half=Math.floor(group.length/2);
+    const colors=half+(group.length%2&&extraColor?1:0);
+    if(group.length%2)extraColor=!extraColor;
+    shuffled.forEach((s,i)=>out.push({...s,colour:i<colors?'color':'gray'}));
+  }
+  return shuffle(out);
+}
+async function configure(){
+  try{
+    const r=await fetch('/api/config');if(!r.ok)throw new Error('Cannot load study configuration.');
+    ({images:stimuli}=await r.json());if(!stimuli.length)throw new Error('No images found in the image folders.');
+    await Promise.all(stimuli.map(s=>new Promise((resolve,reject)=>{const img=new Image();img.onload=resolve;img.onerror=()=>reject(new Error('Cannot load image: '+s.src));img.src=s.src;})));
+    const total=stimuli.length;
+    $('#image-total').textContent=total+' images';$('#study-time').textContent='About '+Math.ceil(total*.6)+' min';
+    configReady=true;check();
+  }catch(e){$('#image-total').textContent='Images unavailable';$('#err').textContent=e.message+' Please start the server and refresh this page.';}
+}
+
+/* ===== UI helpers ===== */
+const show=n=>{['s1','s2','s3','s4'].forEach((id,i)=>{const el=$('#'+id);el.hidden=(i+1!==n);if(i+1===n){el.classList.remove('enter');void el.offsetWidth;el.classList.add('enter');}});
+  document.querySelectorAll('#steps span').forEach((x,i)=>x.className=i+1===n?'on':(i+1<n?'done':''));
+  $('#main').classList.toggle('wide',n===2);scrollTo(0,0);};
+const progress=p=>$('#bar').style.width=p+'%';
+const sc=$('#sc'),g=sc.querySelector('svg').cloneNode(true);g.classList.add('g');sc.insertBefore(g,sc.querySelector('.ln'));
+show(1);
+
+/* ===== Reliable saving: queue + retry ===== */
+const queue=[];let busy=false,finishRequested=false;
+function post(url,body){queue.push({url,body});pump();}
+async function pump(){
+  if(busy)return;busy=true;$('#sync').textContent='Saving your responses…';
+  while(queue.length){const j=queue[0];
+    try{const r=await fetch(j.url,{method:'POST',headers:H,body:JSON.stringify(j.body),keepalive:true});
+      if(r.status>=500)throw 0;
+      if(!r.ok){$('#sync').textContent='Saving failed ('+r.status+'). Keep this page open and contact the researcher with your ID.';busy=false;return;}
+      queue.shift();}
+    catch(e){$('#sync').textContent='Connection problem – retrying…';await new Promise(r=>setTimeout(r,3000));}}
+  busy=false;$('#sync').textContent='Your responses are saved ✓';if(finishRequested)onbeforeunload=null;
+}
+
+/* ===== Start ===== */
+const check=()=>$('#start').disabled=!(configReady&&$('#major').value.trim()&&$('#cons').checked);
+$('#major').oninput=check;$('#cons').onchange=check;
+let pid='',token='',order=[],idx=0,rows=[],t0=0,tChoice=0,resp=null,conf=0,tStart=0,estN=null;
+$('#start').onclick=async()=>{
+  const b=$('#start');b.disabled=true;$('#err').textContent='';order=makePlan();
+  try{const r=await fetch('/api/start',{method:'POST',headers:H,body:JSON.stringify({major:$('#major').value.trim(),
+      plan:order.map(s=>({image:s.id,colour:s.colour})),
+      device:{w:innerWidth,h:innerHeight,ua:navigator.userAgent,tz:Intl.DateTimeFormat().resolvedOptions().timeZone}})});
+    if(!r.ok)throw 0;({pid,token}=await r.json());}
+  catch(e){$('#err').textContent="Can't reach the server. Please check your connection and try again.";b.disabled=false;return;}
+  $('#pid').textContent=$('#pid2').textContent=pid;$('#pidbox').hidden=false;
+  tStart=Date.now();idx=0;onbeforeunload=e=>{e.preventDefault();e.returnValue='';};
+  const d=$('#dots');for(let i=0;i<order.length;i++)d.appendChild(document.createElement('i'));
+  show(2);load();
+};
+
+/* ===== Trials ===== */
+const CL=['','Not at all','Slightly','Somewhat','Fairly','Very'];
+const scale=$('#scale');
+for(let i=1;i<=5;i++){const b=document.createElement('button');b.className='opt';b.textContent=i;b.dataset.c=i;b.setAttribute('aria-pressed','false');scale.appendChild(b);}
+let imageReady=false;
+const zoom=$('#zoom');
+function enlarge(){
+  if(!imageReady||zoom.open)return;
+  const img=$('#pic img');$('#zoom-image').src=img.src;$('#zoom-image').style.filter=img.style.filter;
+  zoom.showModal();
+}
+$('#zoom-close').onclick=()=>zoom.close();
+zoom.onclick=e=>{if(e.target===zoom)zoom.close();};
+const ready=()=>$('#next').disabled=!(imageReady&&resp&&conf);
+function setResp(k){if(!imageReady)return;resp=k;if(!tChoice)tChoice=performance.now();document.querySelectorAll('[data-k]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.k===k));ready();}
+function setConf(c){if(!imageReady)return;conf=+c;$('#cur').textContent=CL[c];scale.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.c==c));ready();}
+document.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>setResp(b.dataset.k));
+scale.onclick=e=>{const b=e.target.closest('button');if(b)setConf(b.dataset.c);};
+$('#rtog').onclick=()=>{const b=$('#rbox');b.hidden=!b.hidden;$('#rtog').textContent=b.hidden?'+ Add a reason (optional)':'− Hide reason';if(!b.hidden)$('#reason').focus();};
+$('#reason').oninput=e=>$('#cn').textContent=e.target.value.length;
+let shownAt='';
+function load(){
+  const s=order[idx];imageReady=false;
+  document.querySelectorAll('#s2 .opt').forEach(b=>b.disabled=true);
+  $('#count').textContent=`${idx+1} / ${order.length}`;progress(idx/order.length*100);
+  document.querySelectorAll('#dots i').forEach((d,i)=>d.className=i<idx?'d':(i===idx?'c':''));
+  $('#next').innerHTML=(idx===order.length-1?'Finish':'Next')+ARR;
+  const pic=$('#pic');pic.textContent='';pic.disabled=true;pic.onclick=enlarge;pic.setAttribute('aria-label','Enlarge image');const img=new Image();img.alt='';
+  img.onload=()=>{img.classList.add('on');pic.disabled=false;imageReady=true;shownAt=new Date().toISOString();t0=performance.now();document.querySelectorAll('#s2 .opt').forEach(b=>b.disabled=false);ready();};
+  img.onerror=()=>{pic.textContent='Image could not load. Click here to retry.';pic.disabled=false;pic.setAttribute('aria-label','Retry loading image');pic.onclick=load;};
+  if(s.colour==='gray')img.style.filter='grayscale(1)';
+  img.src=s.src;pic.appendChild(img);
+  if(idx+1<order.length)new Image().src=order[idx+1].src;
+  resp=null;conf=0;tChoice=0;$('#reason').value='';$('#cn').textContent=0;$('#cur').textContent='';
+  $('#rbox').hidden=true;$('#rtog').textContent='+ Add a reason (optional)';
+  document.querySelectorAll('#s2 .opt').forEach(b=>b.setAttribute('aria-pressed','false'));
+  $('#next').disabled=true;
+}
+$('#next').onclick=()=>{
+  if(!(imageReady&&resp&&conf))return;const s=order[idx],now=performance.now();
+  const row={trial:idx+1,image:s.id,category:s.cat,truth:s.truth,ai_realism:s.realism,colour:s.colour,response:resp,
+    correct:resp===s.truth?1:0,confidence:conf,reason:$('#reason').value.trim(),
+    rt_choice_ms:Math.round(tChoice-t0),rt_total_ms:Math.round(now-t0),shown_at:shownAt};
+  rows.push(row);post('/api/trial',{pid,token,trial:row});idx++;
+  if(idx>=order.length){progress(100);show(3);}else load();
+};
+
+/* ===== Estimate + results ===== */
+$('#est').onclick=e=>{const b=e.target.closest('[data-est]');if(!b)return;estN=+b.dataset.est;
+  document.querySelectorAll('[data-est]').forEach(x=>x.setAttribute('aria-pressed',x===b));$('#submit').disabled=false;};
+function countUp(el,to,fmt,precision=0){const t=performance.now(),factor=10**precision;(function f(n){const p=Math.min((n-t)/800,1),e=1-Math.pow(1-p,3);el.textContent=fmt(Math.round(to*e*factor)/factor);if(p<1)requestAnimationFrame(f);})(t);}
+const stat=f=>{const r=rows.filter(f),c=r.reduce((s,x)=>s+x.correct,0);return{n:r.length,c,acc:r.length?Math.round(c/r.length*100):0};};
+$('#submit').onclick=()=>{
+  if(finishRequested||estN===null)return;finishRequested=true;$('#submit').disabled=true;
+  post('/api/finish',{pid,token,estimatePercent:estN,clientSec:Math.round((Date.now()-tStart)/1000)});
+  const all=stat(()=>true),actual=all.c/all.n*100,gap=estN-actual;
+  countUp($('#o_act'),actual,v=>`${v}%`,1);countUp($('#o_est'),estN,v=>`${v}%`);countUp($('#o_gap'),gap,v=>(v>0?'+':'')+v,1);
+  $('#tbl').innerHTML=[['Portrait',r=>r.category==='portrait'],['Landscape',r=>r.category==='landscape'],['Colour',r=>r.colour==='color'],['Grayscale',r=>r.colour==='gray']]
+    .filter(([n,f])=>rows.some(f)).map(([n,f])=>{const s=stat(f);return `<tr><td>${n}</td><td>${s.c}/${s.n}</td><td><div class="trk"><i data-w="${s.acc}"></i></div></td><td>${s.acc}%</td></tr>`;}).join('');
+  progress(100);show(4);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>document.querySelectorAll('.trk i').forEach(i=>i.style.width=i.dataset.w+'%')));
+};
+configure();
+</script>
+</body>
+</html>
