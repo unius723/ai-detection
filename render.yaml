@@ -5,7 +5,7 @@ services:
     repo: https://github.com/unius723/ai-detection
     branch: main
     region: singapore
-    plan: 0.5c-512mb
+    plan: free
     numInstances: 1
     buildCommand: node --check server.js
     startCommand: node server.js
@@ -19,10 +19,6 @@ services:
       - key: BIND_HOST
         value: 0.0.0.0
       - key: DATA_DIR
-        value: /var/data
+        value: /tmp/ai-detection-data
       - key: ADMIN_PASSWORD
         generateValue: true
-    disk:
-      name: study-data
-      mountPath: /var/data
-      sizeGB: 1
