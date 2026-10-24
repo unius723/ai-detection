@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data Analysis Panel · AI Image Judgement Study</title>
+<style>
+:root{--bg:#F6F6F7;--card:#fff;--ink:#0F1115;--mute:#5B616B;--line:#E3E5E8;--acc:#2D3FE0;--ok:#1E8E4E;--warn:#C77B1F}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.top{position:sticky;top:0;background:rgba(246,246,247,.9);backdrop-filter:blur(8px);z-index:5;border-bottom:1px solid var(--line)}
+.top .in{max-width:1120px;margin:0 auto;height:64px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px}
+.top b{font-weight:600;letter-spacing:.02em}
+.top .mute{color:var(--mute);font-size:13px}
+.top a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--line)}
+main{max-width:1120px;margin:0 auto;padding:40px 24px 90px}
+h1{margin:0 0 8px;font-weight:300;font-size:clamp(28px,4vw,44px);line-height:1.15;letter-spacing:-.02em}
+h2{margin:0 0 16px;font-size:16px;font-weight:600}
+p.lede{margin:0 0 28px;color:var(--mute);font-size:15.5px;line-height:1.7;max-width:60em}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px;margin-bottom:24px;transition:box-shadow .3s ease}
+.card:hover{box-shadow:0 20px 40px -30px rgba(15,17,21,.35)}
+.drop{border:2px dashed #CBD0D6;border-radius:16px;padding:44px 20px;text-align:center;color:var(--mute);cursor:pointer;transition:all .2s;background:#fff}
+.drop:hover,.drop.over{border-color:var(--ink);background:#FAFAFC}
+.drop b{display:block;font-size:17px;color:var(--ink);margin-bottom:6px}
+.drop span{font-size:13.5px;line-height:1.7;display:block}
+.btn{font:inherit;cursor:pointer;height:48px;border:0;border-radius:12px;background:var(--ink);color:#fff;font-size:15px;font-weight:500;padding:0 20px}
+.btn:disabled{background:#B9BDC4;cursor:not-allowed}
+.btn.ghost{background:#fff;color:var(--ink);border:1px solid #CBD0D6}
+.btn.mini{height:34px;font-size:13px;border-radius:8px;padding:0 14px}
+.files{margin-top:14px;font-size:13px;color:var(--mute)}
+.empty{padding:60px 20px;text-align:center;color:var(--mute);font-size:14.5px;display:none}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin:0 0 6px}
+.stat{border-top:1px solid var(--ink);padding-top:12px;font-size:13px;color:var(--mute)}
+.stat b{display:block;font-size:34px;font-weight:200;letter-spacing:-.02em;color:var(--ink);margin-top:4px;font-variant-numeric:tabular-nums}
+.stat small{font-size:12px;color:var(--mute)}
+.hyp{border-left:3px solid var(--acc);padding:4px 0 4px 16px;margin:26px 0 14px}
+.hyp h3{margin:0 0 4px;font-size:15px;font-weight:600}
+.hyp p{margin:0;font-size:13.5px;color:var(--mute);line-height:1.7}
+.hint{font-size:12.5px;color:var(--mute);line-height:1.6;margin-top:10px}
+.warn{background:#FFF6E9;border:1px solid #F0D9B0;color:#7A4E0B;border-radius:12px;padding:14px 18px;font-size:13.5px;line-height:1.7;margin-bottom:24px}
+.warn.err{background:#FFF0EF;border-color:#F1B8B3;color:#B42318}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media(max-width:900px){.charts{grid-template-columns:1fr}}
+.gcard .ttl{font-size:14px;font-weight:600;margin:0 0 2px}
+.gcard .sub{font-size:12.5px;color:var(--mute);margin:0 0 14px}
+.gcard svg{width:100%;height:auto;display:block}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--mute);margin-top:10px}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+table{width:100%;border-collapse:collapse;font-size:13.5px;font-variant-numeric:tabular-nums}
+th{font-weight:500;color:var(--mute);font-size:12.5px;text-align:left;padding:8px 8px;border-bottom:1px solid var(--line)}
+td{padding:8px 8px;border-bottom:1px solid var(--line);text-align:left}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.bar{height:9px;border-radius:4px;background:linear-gradient(90deg,#2D3FE0,var(--acc));min-width:2px}
+.barrow{display:flex;align-items:center;gap:10px}
+.perc{width:44px;text-align:right;font-variant-numeric:tabular-nums;font-size:12.5px;color:var(--mute)}
+.foot{margin-top:40px;text-align:center;color:var(--mute);font-size:12.5px;line-height:1.8}
+.statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:9px;background:#FAFAFC;border:1px solid var(--line);border-radius:10px;padding:12px}
+.statrow div{font-size:12px;color:var(--mute)}
+.statrow b{display:block;font-size:17px;font-weight:500;color:var(--ink);margin-top:2px}
+.tagline{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pill{font-size:12px;padding:3px 10px;border-radius:999px;background:#ECEEF4;color:var(--mute)}
+.pill.ok{background:#E4F3EA;color:var(--ok)}
+.pill.hl{background:#E8EBFF;color:var(--acc)}
+</style>
+</head>
+<body>
+<div class="top"><div class="in"><b>Data Analysis Panel</b><span class="mute"><a href="/admin">← Back to dashboard</a></span></div></div>
+<main>
+  <h1>Data Analysis Panel</h1>
+  <p class="lede">This panel loads the participant records collected by the study (no manual export needed) and visualises three research hypotheses:
+  <b>H1 Portrait vs landscape</b>, <b>H2 Colour vs grayscale</b>, <b>H3 Self-estimate vs actual accuracy</b>,
+  together with cross-tabulated statistics by group / authenticity, and one-click export of the merged detail data.</p>
+
+  <div class="card">
+    <div class="drop" id="drop">
+      <b>Drag &amp; drop CSV data files here, or click to choose files</b>
+      <span>Multiple files are supported and can be appended. Files can be the Trials CSV / Participants CSV exported from the study dashboard.<br>Alternatively you can just use the data already stored on the server with the button below.</span>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <button class="btn" id="serverBtn" disabled>Load server data</button>
+      <button class="btn ghost" id="loadBtn">Choose CSV files</button>
+      <button class="btn ghost" id="demoBtn" title="Generate sample data with the same structure as real exports">Load sample data</button>
+      <button class="btn ghost mini" id="exportBtn" disabled>Export participant summary (CSV)</button>
+      <button class="btn ghost mini" id="exportRawBtn" disabled>Export all trials (CSV)</button>
+      <button class="btn ghost mini" id="clearBtn">Clear all data</button>
+      <input type="file" id="file" accept=".csv,text/csv" multiple hidden>
+    </div>
+    <div class="files" id="files"></div>
+  </div>
+
+  <div class="warn" id="warn" hidden></div>
+
+  <section id="dataSection" hidden>
+    <div class="card">
+      <div class="stats">
+        <div class="stat">Participants<small>summaries found</small><b id="st_subj">0</b></div>
+        <div class="stat">Valid judgments<small>trials</small><b id="st_trials">0</b></div>
+        <div class="stat">Overall accuracy<small>overall accuracy</small><b id="st_acc">–</b></div>
+        <div class="stat">Mean confidence<small>1–5 scale</small><b id="st_conf">–</b></div>
+        <div class="stat">Self-estimate bias<small>self &minus; actual</small><b id="st_gap">–</b></div>
+      </div>
+      <div class="hint">Self-estimate bias = self-estimated number correct &minus; actual number correct. A positive value means the participant overestimated themselves (overconfidence).</div>
+    </div>
+
+    <div class="card gcard">
+      <div class="tagline"><h2 style="margin:0">H1 · Image category</h2><span class="pill hl">Portrait vs Landscape</span></div>
+      <p class="sub" style="margin-top:6px">Hypothesis: people are better at detecting AI-generated <u>portraits</u> than <u>landscapes</u>. Bar heights are the mean accuracy (%) of each group; n is the number of judgments in that group.</p>
+      <div id="h1"></div>
+    </div>
+
+    <div class="card gcard">
+      <div class="tagline"><h2 style="margin:0">H2 · Presentation mode</h2><span class="pill hl">Colour vs Grayscale</span></div>
+      <p class="sub" style="margin-top:6px">Hypothesis: people classify <u>colour</u> images more accurately than grayscale ones. Bar heights are the mean accuracy (%) of each group; n is the number of judgments in that group.</p>
+      <div id="h2"></div>
+    </div>
+
+    <div class="card gcard">
+      <div class="tagline"><h2 style="margin:0">H3 · Self-estimate vs Actual</h2><span class="pill hl">Metacognitive bias</span></div>
+      <p class="sub" style="margin-top:6px">Hypothesis: participants tend to <u>overestimate</u> their own ability. Each point is one participant: x-axis = self-estimated number correct, y-axis = actual number correct; the dashed line is the 45° perfect-calibration line. Points below the line indicate overestimation.</p>
+      <div id="h3"></div>
+    </div>
+
+    <div class="charts">
+      <div class="card gcard">
+        <h2 style="margin:0 0 4px">Truth × Category × Presentation</h2>
+        <p class="sub">Cross-tabulated accuracy and counts by authenticity / category / colour — a quick fact-check before repeated-measures or ANOVA in SPSS/JASP.</p>
+        <table>
+          <thead><tr><th>Group</th><th class="num">Judgments</th><th class="num">Correct</th><th class="num">Accuracy</th><th>Accuracy plot</th></tr></thead>
+          <tbody id="crossTable"></tbody>
+        </table>
+        <div class="hint">For inferential statistics (significance tests), import the "exported merged data" below into SPSS / JASP / Jamovi.</div>
+      </div>
+      <div class="card gcard">
+        <h2 style="margin:0 0 4px">Confidence calibration</h2>
+        <p class="sub">Mean accuracy grouped by confidence rating 1–5. If perfectly calibrated, each bin's accuracy should match its confidence level.</p>
+        <div id="calib"></div>
+      </div>
+    </div>
+
+    <div class="card gcard">
+      <h2 style="margin:0 0 4px">Per-participant detail</h2>
+      <p class="sub">Accuracy and self-estimate bias of each participant across key dimensions.</p>
+      <div style="overflow:auto"><table>
+        <thead><tr><th>ID</th><th>Major</th><th>List</th><th class="num">Actual</th><th class="num">Self-est.</th><th class="num">Bias</th><th class="num">Overall</th><th class="num">Portrait</th><th class="num">Landscape</th><th class="num">Colour</th><th class="num">Gray</th><th class="num">Mean conf.</th></tr></thead>
+        <tbody id="subjTable"></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <div class="empty" id="emptyTip">No data loaded yet.<br>Click "Load server data", or drag CSV files exported from the study dashboard into the area above.</div>
+  <div class="foot">This panel is a local tool: all data processing happens inside your browser and the data never leaves your computer.<br>Descriptive statistics and visualisations are computed automatically from the exported CSV / server records; for inferential statistics please use professional statistical software.</div>
+</main>
+
+<script>
+/* ===================== Constants ===================== */
+const COLS = ['pid','major','list','trial','image','category','truth','ai_realism','colour','response','correct','confidence','reason','rt_choice_ms','rt_total_ms'];
+let subjects = [];   // {pid,major,list,trials:[...],self,actual}
+let attached = [];   // file/source names (display only)
+
+const $ = s=>document.querySelector(s);
+const num = v => { const n = +v; return isFinite(n) ? n : null; };
+
+/* ===================== Server data ===================== */
+async function loadFromServer(){
+  $('#serverBtn').disabled = true;
+  try{
+    const r = await fetch('/analysis/data', { cache: 'no-store' });
+    if (r.status === 401){ showWarn('Not authorised. Please log in to the admin dashboard first, then reload this page.', true); return; }
+    if (!r.ok) throw 0;
+    const d = await r.json();
+    const completed = d.filter(q => q.status === 'completed');
+    if (!completed.length){ showWarn('No completed participant records were found on the server. Finish at least one participant in the study before analysing.', false); return; }
+    subjects = []; attached = [];
+    completed.forEach(q => {
+      const trials = (q.trials || []).map(t => ({
+        pid: q.pid, major: q.major || '', list: '', trial: +t.trial,
+        image: t.image, category: t.category, truth: t.truth, ai_realism: t.ai_realism || '',
+        colour: t.colour, response: t.response, correct: +t.correct, confidence: +t.confidence,
+        reason: t.reason || '', rt_choice_ms: +t.rt_choice_ms || 0, rt_total_ms: +t.rt_total_ms || 0
+      }));
+      subjects.push({
+        pid: q.pid, major: q.major || '', list: '',
+        trials,
+        self: q.estimate != null && isFinite(+q.estimate) ? Math.round(+q.estimate) : null,
+        actual: q.correct
+      });
+    });
+    attached.push('server data (' + completed.length + ' participants)');
+    render();
+  }catch(e){ showWarn('Could not load data from the server. Is the study server running? If an admin password is set, log in to /admin in this browser first.', true); }
+  finally{ $('#serverBtn').disabled = false; }
+}
+function showWarn(msg, err){
+  const w = $('#warn'); w.textContent = msg; w.classList.toggle('err', !!err); w.hidden = false;
+}
+
+/* ===================== File parsing ===================== */
+function parseCSV(text){
+  // Simple CSV parser: supports quotes and commas
+  const rows=[]; let row=[], cur='', inq=false;
+  for (let i=0;i<text.length;i++){
+    const c=text[i];
+    if (inq){ if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else inq=false; } else cur+=c; }
+    else if (c==='"') inq=true;
+    else if (c===','){ row.push(cur); cur=''; }
+    else if (c==='\n'){ row.push(cur); cur=''; if(row.length>1 || row[0].trim()!=='') rows.push(row); row=[]; }
+    else if (c==='\r'){ /* skip */ }
+    else cur+=c;
+  }
+  if(cur!=='' || row.length){ row.push(cur); rows.push(row); }
+  return rows;
+}
+function rowObj(header, r){
+  const o = {}; header.forEach((k,i)=>o[k]=r[i]!==undefined?r[i].trim():''); return o;
+}
+function classifyFile(rows){
+  if(rows.length>=2){
+    const h = rows[0].map(x=>x.toLowerCase().replace(/^\ufeff/,''));
+    // Individual participant export: a trailing self/actual summary pair
+    const isPartSummary = rows.some(r=>{
+      const c0=String(r[0]||'').trim().replace(/"/g,'').toLowerCase();
+      return c0==='self_estimate_correct' || c0==='actual_correct';
+    });
+    // Study-dashboard Participants CSV: one row per participant
+    const isPerRowSummary = (h.includes('participant_id') || h.includes('pid')) && h.includes('self_estimate_percent') && h.includes('correct') && !h.includes('trial');
+    if(isPartSummary||isPerRowSummary) return 'summary';
+    // Merged detail CSV: header contains trial + (pid | participant_id)
+    if(h.includes('trial') && (h.includes('pid')||h.includes('participant_id'))) return 'merged';
+  }
+  return 'unknown';
+}
+function ingestFile(rows, name){
+  const kind = classifyFile(rows);
+  if(kind==='summary'){
+    const h = rows[0].map(x=>x.trim().replace(/^"|"$/g,'').toLowerCase());
+    const isPerRow = h.includes('participant_id') && h.includes('self_estimate_percent');
+    if(isPerRow){
+      // Participants CSV: each row is one participant
+      const data = rows.slice(1).map(r=>rowObj(h,r)).filter(r=>(r.participant_id||r.pid) && r.correct!=='');
+      if(!data.length) return {ok:false, why:'Could not find participant rows in the Participants CSV.'};
+      let n=0;
+      data.forEach(o=>{
+        const total = num(o.trials_total) || 24, pct = num(o.self_estimate_percent);
+        subjects.push({
+          pid: o.participant_id||o.pid, major: o.major||'', list: o.list||'', trials: [],
+          self: pct!=null? Math.round(total*pct/100) : null,
+          actual: num(o.correct)
+        });
+        n++;
+      });
+      return {ok:true, n, pid: n+' participants'};
+    }
+    // Individual participant export: header row + trial rows + trailing self/actual lines
+    const selfRow = rows.find(r=>String(r[0]).replace(/"/g,'').trim().toLowerCase().startsWith('self_estimate'));
+    const actRow  = rows.find(r=>String(r[0]).replace(/"/g,'').trim().toLowerCase().startsWith('actual_correct'));
+    const trials = rows.slice(1).filter(r=>r.length>=5 && !String(r[0]).startsWith('"')).map(r=>rowObj(h,r))
+      .filter(r=>r.trial!=='' && r.image!=='');
+    if(!trials.length) return {ok:false, why:'No valid trial rows found (need header + data rows).'};
+    const pid = trials[0].pid || 'P-?';
+    subjects.push({
+      pid,
+      major: trials[0].major||'',
+      list: trials[0].list||'',
+      trials,
+      self: selfRow ? num(String(selfRow[1]).replace(/"/g,'')) : null,
+      actual: actRow ? num(String(actRow[1]).replace(/"/g,'')) : null
+    });
+    return {ok:true, n:trials.length, pid};
+  }
+  if(kind==='merged'){
+    // Merged detail CSV: grouped by participant id
+    const h = rows[0].map(x=>x.trim().toLowerCase());
+    const data = rows.slice(1).map(r=>rowObj(h,r))
+      .filter(r=>(r.pid||r.participant_id) && r.trial!=='');
+    if(!data.length) return {ok:false, why:'No data rows found in the merged detail CSV.'};
+    const byPid = {};
+    data.forEach(r=>{ const k=(r.pid||r.participant_id); (byPid[k]=byPid[k]||[]).push({...r, pid:k}); });
+    Object.keys(byPid).forEach(pid=>{
+      const trials = byPid[pid];
+      subjects.push({pid, major:trials[0].major||'', list:trials[0].list||'', trials, self:null, actual:null});
+    });
+    return {ok:true, n:data.length, pid:Object.keys(byPid).length+' participants'};
+  }
+  return {ok:false, why:'Unrecognised CSV structure. Use a file exported from the study dashboard (Trials CSV / Participants CSV) or a merged detail CSV.'};
+}
+
+function handleFiles(fl){
+  let ok=0, errs=[];
+  [...fl].forEach(file=>{
+    const reader = new FileReader();
+    reader.onload = e=>{
+      const rows = parseCSV(String(e.target.result).replace(/^\ufeff/,'').replace(/^\s*\uFEFF/,''));
+      const res = ingestFile(rows, file.name);
+      if(res.ok){ ok++; attached.push(file.name); }
+      else errs.push(file.name + ': ' + res.why);
+      render();
+    };
+    reader.readAsText(file, 'utf-8');
+  });
+  setTimeout(render, 400);
+}
+
+function loadDemo(){
+  // 8 simulated participants with the same structure as real data
+  const words = ['Psychology','CS','Design','Business','Media','Medicine','Economics','Art'];
+  const realism = ['high','high','mid','mid','low','low'];
+  const seed = (pid, trial)=> { let x = pid*131 + trial*17; x = (x*2654435761)>>>0; return x/4294967296; };
+  for(let s=1;s<=8;s++){
+    const pid='P-DEMO'+s, list = s%2? 'A':'B';
+    const trials=[];
+    let n=0;
+    for(const cat of ['portrait','landscape'])
+      for(const truth of ['real','ai'])
+        for(let i=1;i<=6;i++){
+          n++;
+          const odd = i%2===1;
+          const colour = (odd===(list==='A')) ? 'color':'gray';
+          const r = seed(s,n);
+          let p = 0.60 + (cat==='portrait'?0.10:0) + (colour==='color'?0.05:0) + (truth==='real'?0.04:-0.03) + (realism[i-1]==='high'?-0.08:realism[i-1]==='mid'?0:0.06);
+          p = Math.min(0.92, Math.max(0.35, p));
+          const correct = r<p?1:0;
+          const conf = Math.min(5, Math.max(1, Math.round(4 - Math.abs(r-0.55)*3 + (correct?1.2:0))));
+          trials.push({pid,major:words[(s*3+n)%words.length],list,trial:n,image:`${cat}_${truth}_${i}`,category:cat,truth,
+            ai_realism:truth==='ai'?realism[i-1]:'',colour,response:correct==1?truth:(truth==='real'?'ai':'real'),
+            correct,confidence:conf,reason:'',rt_choice_ms:1200+Math.round(r*4000),rt_total_ms:2500+Math.round(r*6000)});
+        }
+    const actual = trials.filter(x=>x.correct===1).length;
+    const slip = s%3===0? -2 : Math.round((s*7)%5)+1;
+    const self = Math.min(24,Math.max(0, actual+slip));
+    subjects.push({pid,major:words[s*2%words.length],list,trials,self,actual});
+    attached.push(pid+' (sample)');
+  }
+  render();
+}
+
+/* ===================== Statistics ===================== */
+const allTrials = ()=>subjects.flatMap(s=>s.trials);
+function rate(list){ const n=list.length; if(!n) return 0;
+  return list.reduce((a,r)=>a+(+r.correct||0),0)/n*100; }
+function avg(list,f){ const n=list.length; if(!n) return 0;
+  return list.reduce((a,r)=>a+(+r[f]||0),0)/n; }
+function round1(x){ return Math.round(x*10)/10; }
+function summarize(){
+  const tr = allTrials();
+  const nSubj = subjects.length;
+  const acc = tr.length? rate(tr) : 0;
+  const conf = tr.length? round1(avg(tr,'confidence')) : 0;
+  const withSelf = subjects.filter(s=>s.self!=null && s.actual!=null);
+  const gap = withSelf.length? round1(withSelf.reduce((a,s)=>a+(s.self-s.actual),0)/withSelf.length) : null;
+  return {nSubj, trials:tr.length, acc, conf, gap, nWithSelf:withSelf.length};
+}
+function crossRows(){
+  const dims = [
+    ['Portrait', r=>r.category==='portrait'], ['Landscape', r=>r.category==='landscape'],
+    ['Colour', r=>r.colour==='color'], ['Grayscale', r=>r.colour==='gray'],
+    ['Real photo', r=>r.truth==='real'], ['AI-generated', r=>r.truth==='ai'],
+    ['Portrait · Real', r=>r.category==='portrait'&&r.truth==='real'], ['Portrait · AI', r=>r.category==='portrait'&&r.truth==='ai'],
+    ['Landscape · Real', r=>r.category==='landscape'&&r.truth==='real'], ['Landscape · AI', r=>r.category==='landscape'&&r.truth==='ai'],
+    ['Colour · Real', r=>r.colour==='color'&&r.truth==='real'], ['Colour · AI', r=>r.colour==='color'&&r.truth==='ai'],
+    ['Gray · Real', r=>r.colour==='gray'&&r.truth==='real'], ['Gray · AI', r=>r.colour==='gray'&&r.truth==='ai'],
+    ['AI · High realism', r=>r.truth==='ai'&&r.ai_realism==='high'], ['AI · Mid realism', r=>r.truth==='ai'&&r.ai_realism==='mid'], ['AI · Low realism', r=>r.truth==='ai'&&r.ai_realism==='low']
+  ];
+  return dims.map(([name,f])=>{ const l=allTrials().filter(f);
+    return {name, n:l.length, c:l.reduce((a,r)=>a+(+r.correct||0),0), pct: l.length?rate(l):0}; });
+}
+function confCalib(){
+  return [1,2,3,4,5].map(c=>{ const l=allTrials().filter(r=>+r.confidence===c);
+    return {conf:c, n:l.length, pct:l.length?rate(l):0}; });
+}
+
+/* ===================== SVG charts ===================== */
+function groupBar(el, left, right, common){
+  const both=[...left,...right];
+  const legend = `<div class="legend"><span><i style="background:${common.c1}"></i>${common.n1}</span><span><i style="background:${common.c2}"></i>${common.n2}</span></div>`;
+  const W=520,H=230,L=46,R=8,T=14,B=38;
+  const plotW=W-L-R, plotH=H-T-B;
+  const n=left.length, step=plotW/Math.max(n,1), bw=Math.min(64, step*0.30);
+  const maxV=100;
+  const y=v=>T+plotH*(1-v/maxV);
+  let s=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+  for(let g=0;g<=4;g++){ const v=100*g/4, yy=y(v);
+    s+=`<line x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}" stroke="#ECEEF4"/><text x="${L-6}" y="${yy+4}" text-anchor="end" font-size="10" fill="#9AA1AB">${v}%</text>`; }
+  for(let i=0;i<n;i++){
+    const cx=L+step*i+step/2;
+    const h1=plotH*left[i].value/maxV, h2=plotH*right[i].value/maxV;
+    s+=`<rect x="${cx-bw-2}" y="${y(left[i].value)}" width="${bw}" height="${Math.max(h1,1.5)}" rx="4" fill="${common.c1}"/>`;
+    s+=`<rect x="${cx+2}" y="${y(right[i].value)}" width="${bw}" height="${Math.max(h2,1.5)}" rx="4" fill="${common.c2}"/>`;
+    s+=`<text x="${cx-bw/2-2}" y="${y(left[i].value)-6}" text-anchor="middle" font-size="10.5" font-weight="600" fill="${common.c1}">${Math.round(left[i].value)}%</text>`;
+    s+=`<text x="${cx+bw/2+2}" y="${y(right[i].value)-6}" text-anchor="middle" font-size="10.5" font-weight="600" fill="${common.c2}">${Math.round(right[i].value)}%</text>`;
+    s+=`<text x="${cx}" y="${H-B+16}" text-anchor="middle" font-size="11" fill="#5B616B">${left[i].name}</text>`;
+    s+=`<text x="${cx}" y="${H-B+29}" text-anchor="middle" font-size="9.5" fill="#8A93E8">n=${left[i].n} / ${right[i].n}</text>`;
+  }
+  s+=`</svg>${legend}`;
+  el.innerHTML=s;
+}
+function scatter(el){
+  const pts=subjects.filter(s=>s.self!=null && s.actual!=null);
+  let N=12;
+  subjects.forEach(s=>{ N=Math.max(N, s.self||0, s.actual||0, s.trials.length); });
+  N=Math.max(12, N);
+  const W=520,H=300,L=48,R=14,T=14,B=40;
+  const plotW=W-L-R, plotH=H-T-B;
+  let s=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+  for(let g=0;g<=6;g++){ const v=N*g/6, x=L+plotW*g/6, y=T+plotH*(1-g/6);
+    s+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="#ECEEF4"/><text x="${L-6}" y="${y+4}" text-anchor="end" font-size="10" fill="#9AA1AB">${Math.round(v)}</text>`;
+    s+=`<line x1="${x}" y1="${T}" x2="${x}" y2="${T+plotH}" stroke="#ECEEF4"/>`; }
+  // 45° calibration line
+  s+=`<line x1="${L}" y1="${T+plotH}" x2="${L+plotW}" y2="${T}" stroke="#B9BDC4" stroke-dasharray="5 4"/>`;
+  pts.forEach(p=>{
+    const x=L+plotW*p.self/N, y=T+plotH*(1-p.actual/N);
+    const over=p.self>p.actual;
+    s+=`<circle cx="${x}" cy="${y}" r="5.5" fill="${over?'#C77B1F':'#2D3FE0'}" opacity=".85"><title>${p.pid}: self ${p.self}, actual ${p.actual}</title></circle>`;
+  });
+  s+=`<text x="${L-6}" y="${T-6}" text-anchor="start" font-size="10.5" fill="#5B616B">Actual correct</text>`;
+  s+=`</svg>`;
+  s+=`<div class="legend"><span><i style="background:#C77B1F"></i>Overestimate (self&gt;actual)</span><span><i style="background:#2D3FE0"></i>Underestimate or accurate</span></div>`;
+  el.innerHTML=s;
+}
+function calibBars(el){
+  const c=confCalib();
+  const items=c.map(x=>({name:'Confidence '+x.conf, value:round1(x.pct), n:x.n}));
+  el.innerHTML=barChartHTML(items, {maxV:100, suffix:'%', labelInside:true});
+}
+function barChartHTML(items, opts){
+  const W=520,H=210,L=46,R=8,T=16,B=36, maxV=opts.maxV||100;
+  const plotW=W-L-R, plotH=H-T-B, step=plotW/Math.max(items.length,1), bw=Math.min(72, step*0.55);
+  const y=v=>T+plotH*(1-v/maxV);
+  let s=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+  for(let g=0;g<=4;g++){ const v=maxV*g/4, yy=y(v);
+    s+=`<line x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}" stroke="#ECEEF4"/><text x="${L-6}" y="${yy+4}" text-anchor="end" font-size="10" fill="#9AA1AB">${v}${opts.suffix||''}</text>`; }
+  items.forEach((it,i)=>{
+    const cx=L+step*i+step/2, h=plotH*it.value/maxV, yy=y(it.value);
+    s+=`<rect x="${cx-bw/2}" y="${yy}" width="${bw}" height="${Math.max(h,1.5)}" rx="4" fill="#2D3FE0"/>`;
+    s+=`<text x="${cx}" y="${yy-5}" text-anchor="middle" font-size="11" font-weight="600" fill="#0F1115">${opts.labelInside? round1(it.value)+'%' : (it.guess!=null? it.guess+'%':'')}</text>`;
+    s+=`<text x="${cx}" y="${H-B+16}" text-anchor="middle" font-size="11" fill="#5B616B">${it.name}</text>`;
+    if(it.n!=null) s+=`<text x="${cx}" y="${H-B+29}" text-anchor="middle" font-size="9.5" fill="#8A93E8">n=${it.n}</text>`;
+  });
+  s+=`</svg>`;
+  return s;
+}
+
+/* ===================== Rendering ===================== */
+function render(){
+  const sec=$('#dataSection'), empty=$('#emptyTip');
+  if(!subjects.length){ sec.hidden=true; empty.style.display='block'; $('#files').textContent=''; $('#exportBtn').disabled=true; $('#exportRawBtn').disabled=true; $('#warn').hidden=true; return; }
+  sec.hidden=false; empty.style.display='none'; $('#exportBtn').disabled=false; $('#exportRawBtn').disabled=false;
+  const sum=summarize();
+  $('#st_subj').textContent=sum.nSubj;
+  $('#st_trials').textContent=sum.trials;
+  $('#st_acc').textContent = sum.trials? round1(sum.acc)+'%':'–';
+  $('#st_conf').textContent = sum.trials? sum.conf+' / 5':'–';
+  $('#st_gap').textContent = sum.gap!=null? (sum.gap>0?'+':'')+sum.gap:'–';
+  $('#files').textContent = 'Loaded: ' + (attached.join('; ') || '—');
+
+  // H1: Portrait vs Landscape
+  const tr=allTrials();
+  const P=r=>r.category==='portrait', L=r=>r.category==='landscape';
+  const pa=rate(tr.filter(P)), la=rate(tr.filter(L));
+  groupBar($('#h1'), [{name:'Portrait',value:pa,n:tr.filter(P).length}], [{name:'Landscape',value:la,n:tr.filter(L).length}], {c1:'#2D3FE0',c2:'#8A93E8',n1:'Portrait',n2:'Landscape'});
+
+  // H2: Colour vs Grayscale
+  const C=r=>r.colour==='color', G=r=>r.colour==='gray';
+  const ca=rate(tr.filter(C)), ga=rate(tr.filter(G));
+  groupBar($('#h2'), [{name:'Colour',value:ca,n:tr.filter(C).length}], [{name:'Gray',value:ga,n:tr.filter(G).length}], {c1:'#C77B1F',c2:'#9AA1AB',n1:'Colour',n2:'Grayscale'});
+
+  // H3: scatter
+  scatter($('#h3'));
+
+  // Cross table
+  const cr=crossRows();
+  const maxPct=Math.max(...cr.map(x=>x.pct),1);
+  $('#crossTable').innerHTML = cr.map(r=>`<tr>
+      <td>${r.name}</td><td class="num">${r.n}</td><td class="num">${r.c}</td><td class="num">${round1(r.pct)}%</td>
+      <td><div class="barrow"><div class="bar" style="width:${Math.max(r.pct/maxPct*100,2)}%"></div><span class="perc">${round1(r.pct)}%</span></div></td></tr>`).join('');
+
+  // Calibration
+  calibBars($('#calib'));
+
+  // Participant table
+  $('#subjTable').innerHTML = subjects.map(s=>{
+    const t=s.trials;
+    const rr=f=>rate(t.filter(f));
+    const gap=s.self!=null && s.actual!=null? s.self-s.actual : null;
+    return `<tr><td>${s.pid}</td><td>${s.major||'–'}</td><td>${s.list||'–'}</td>
+      <td class="num">${s.actual!=null?s.actual:'–'}</td><td class="num">${s.self!=null?s.self:'–'}</td>
+      <td class="num">${gap!=null?(gap>0?'+':'')+gap:'–'}</td>
+      <td class="num">${t.length?round1(rr(()=>true))+'%':'–'}</td>
+      <td class="num">${t.length?round1(rr(r=>r.category==='portrait'))+'%':'–'}</td>
+      <td class="num">${t.length?round1(rr(r=>r.category==='landscape'))+'%':'–'}</td>
+      <td class="num">${t.length?round1(rr(r=>r.colour==='color'))+'%':'–'}</td>
+      <td class="num">${t.length?round1(rr(r=>r.colour==='gray'))+'%':'–'}</td>
+      <td class="num">${t.length?avg(t,'confidence').toFixed(1):'–'}</td></tr>`;
+  }).join('');
+}
+
+/* ===================== Export ===================== */
+function downloadCSV(rows, name){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\ufeff'+rows.join('\n')],{type:'text/csv'}));
+  a.download=name; a.click();
+}
+/* Participant summary: one row per person incl. self/actual/bias and per-dimension accuracy, ready for SPSS/JASP paired tests */
+$('#exportBtn').onclick=()=>{
+  const H=['pid','major','list','actual_correct','self_estimate','bias','acc_portrait','acc_landscape',
+           'acc_color','acc_gray','acc_real','acc_ai','acc_ai_high','acc_ai_mid','acc_ai_low','avg_confidence'];
+  const rows=[H.join(',')];
+  subjects.forEach(s=>{
+    const t=s.trials;
+    if(!t.length) return;
+    const f=(fn)=> { const l=t.filter(fn); return l.length? Math.round(rate(l)*10)/10 : ''; };
+    rows.push([
+      s.pid, s.major, s.list,
+      s.actual!=null? s.actual : f(()=>true),
+      s.self!=null? s.self : '',
+      s.self!=null && s.actual!=null? s.self-s.actual : '',
+      f(r=>r.category==='portrait'), f(r=>r.category==='landscape'),
+      f(r=>r.colour==='color'), f(r=>r.colour==='gray'),
+      f(r=>r.truth==='real'), f(r=>r.truth==='ai'),
+      f(r=>r.truth==='ai'&&r.ai_realism==='high'), f(r=>r.truth==='ai'&&r.ai_realism==='mid'), f(r=>r.truth==='ai'&&r.ai_realism==='low'),
+      avg(t,'confidence').toFixed(1)
+    ].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(','));
+  });
+  downloadCSV(rows, 'participant_summary.csv');
+};
+/* All trials */
+$('#exportRawBtn').onclick=()=>{
+  const rows=[COLS.join(',')];
+  allTrials().forEach(r=>rows.push(COLS.map(k=>`"${String(r[k]??'').replace(/"/g,'""')}"`).join(',')));
+  downloadCSV(rows, 'all_trials.csv');
+};
+
+/* ===================== Interaction ===================== */
+$('#serverBtn').onclick=loadFromServer;
+$('#loadBtn').onclick=()=>$('#file').click();
+$('#file').onchange=e=>{ if(e.target.files.length) handleFiles(e.target.files); e.target.value=''; };
+const drop=$('#drop');
+drop.onclick=()=>$('#file').click();
+drop.ondragover=e=>{ e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave=()=>drop.classList.remove('over');
+drop.ondrop=e=>{ e.preventDefault(); drop.classList.remove('over');
+  if(e.dataTransfer&&e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); };
+$('#demoBtn').onclick=()=>{ subjects=[]; attached=[]; $('#warn').hidden=true; loadDemo(); };
+$('#clearBtn').onclick=()=>{ subjects=[]; attached=[]; $('#warn').hidden=true; render(); };
+render();
+loadFromServer();
+</script>
+</body>
+</html>

@@ -4,13 +4,19 @@ const PORT = process.env.PORT || 3000, PASS = process.env.ADMIN_PASSWORD || '';
 const BIND_HOST = process.env.BIND_HOST || '127.0.0.1';
 const DIR = process.env.DATA_DIR || path.join(__dirname, 'data'), LOG = path.join(DIR, 'events.jsonl');
 // Use the existing image folders; filenames and extensions do not need to change.
+// Each colour stimulus may have a companion grayscale file named <base>_gray.<ext> in the same folder.
 const images = [];
 for (const category of ['portrait', 'landscape']) for (const truth of ['real', 'ai']) {
   const folder = path.join(__dirname, 'image', category, truth === 'ai' ? 'AI' : 'real');
   if (!fs.existsSync(folder)) continue;
-  for (const file of fs.readdirSync(folder).filter(f => /\.(jpe?g|png|webp)$/i.test(f) && fs.statSync(path.join(folder, f)).isFile()).sort((a, b) => a.localeCompare(b, 'en', { numeric: true }))) {
+  const files = fs.readdirSync(folder).filter(f => /\.(jpe?g|png|webp)$/i.test(f) && fs.statSync(path.join(folder, f)).isFile()).sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
+  for (const file of files) {
+    if (/_gray\./i.test(file)) continue; // grayscale companion is not an independent stimulus
+    const base = file.replace(/\.[^.]+$/, '');
+    const gray = files.find(f => f !== file && f.replace(/\.[^.]+$/, '').toLowerCase() === (base + '_gray').toLowerCase());
     images.push({ id: `${category}_${truth}_${images.filter(i => i.cat === category && i.truth === truth).length + 1}`,
       src: '/image/' + [category, truth === 'ai' ? 'AI' : 'real', file].map(encodeURIComponent).join('/'),
+      gray: gray ? '/image/' + [category, truth === 'ai' ? 'AI' : 'real', gray].map(encodeURIComponent).join('/') : null,
       cat: category, truth, realism: '' });
   }
 }
@@ -74,12 +80,14 @@ function api(p, b, res) {
   if (p === '/api/trial') {
     const t = b.trial || {}, n = +t.trial;
     const plan = plans.get(b.pid), expected = plan[n - 1], stimulus = expected && catalog.get(expected.image);
-    if (!Number.isInteger(n) || !stimulus || t.image !== expected.image || t.colour !== expected.colour || !['real', 'ai'].includes(t.response) || !Number.isInteger(+t.confidence) || !(+t.confidence >= 1 && +t.confidence <= 5)) return json(res, 400, { error: 'bad trial' });
+    const reason = str(t.reason, 200).trim();
+    if (!Number.isInteger(n) || !stimulus || t.image !== expected.image || t.colour !== expected.colour || !['real', 'ai'].includes(t.response) || !Number.isInteger(+t.confidence) || !(+t.confidence >= 1 && +t.confidence <= 5) || (t.response === 'ai' && !reason)) return json(res, 400, { error: 'bad trial' });
     if (done.has(b.pid)) return json(res, 409, { error: 'session already completed' });
-    if (!seen.has(b.pid + ':' + n)) add({ type: 'trial', pid: b.pid, trial: {
+    // Revisited questions append a new event; aggregation keeps the latest answer for each trial.
+    add({ type: 'trial', pid: b.pid, trial: {
       trial: n, image: stimulus.id, category: stimulus.cat, truth: stimulus.truth, ai_realism: stimulus.realism,
       colour: expected.colour, response: t.response, correct: t.response === stimulus.truth ? 1 : 0, confidence: +t.confidence,
-      reason: str(t.reason, 200), rt_choice_ms: +t.rt_choice_ms || 0, rt_total_ms: +t.rt_total_ms || 0, shown_at: str(t.shown_at, 40) } });
+      reason, rt_choice_ms: +t.rt_choice_ms || 0, rt_total_ms: +t.rt_total_ms || 0, shown_at: str(t.shown_at, 40) } });
     return json(res, 200, { ok: 1 });
   }
   if (p === '/api/finish') {
@@ -100,15 +108,16 @@ function api(p, b, res) {
 function build() {
   const m = new Map();
   for (const e of events) {
-    if (e.type === 'start') m.set(e.pid, { pid: e.pid, major: e.major, startedAt: e.t, device: e.device, total: e.plan.length, trials: [], status: 'in progress' });
+    if (e.type === 'start') m.set(e.pid, { pid: e.pid, major: e.major, startedAt: e.t, device: e.device, total: e.plan.length, trials: [], trialMap: new Map(), status: 'in progress' });
     const q = m.get(e.pid); if (!q) continue;
-    if (e.type === 'trial') q.trials.push(e.trial);
+    if (e.type === 'trial') q.trialMap.set(e.trial.trial, e.trial);
     if (e.type === 'finish') Object.assign(q, { status: 'completed', finishedAt: e.t,
       estimate: e.estimatePercent == null ? e.estimate : e.estimatePercent * q.total / 100,
       estimatePercent: e.estimatePercent == null ? e.estimate / q.total * 100 : e.estimatePercent, clientSec: e.clientSec });
   }
   const acc = (q, f) => { const r = q.trials.filter(f); return r.length ? +(r.reduce((s, x) => s + x.correct, 0) / r.length).toFixed(3) : null; };
   for (const q of m.values()) {
+    q.trials = [...q.trialMap.values()]; delete q.trialMap;
     q.trials.sort((a, b) => a.trial - b.trial);
     q.correct = q.trials.reduce((s, x) => s + x.correct, 0);
     q.gapPercent = q.estimatePercent == null ? null : +(q.estimatePercent - q.correct / q.total * 100).toFixed(1);
@@ -155,7 +164,8 @@ function admin(req, res, p) {
     }
   }
   if (p === '/admin') { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); return res.end(fs.readFileSync(path.join(__dirname, 'admin.html'))); }
-  if (p === '/admin/data') return json(res, 200, build());
+  if (p === '/analysis') { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); return res.end(fs.readFileSync(path.join(__dirname, 'analysis.html'))); }
+  if (p === '/admin/data' || p === '/analysis/data') return json(res, 200, build());
   if (p === '/admin/participants.csv' || p === '/admin/trials.csv') {
     res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename=' + p.split('/').pop() });
     return res.end(p.includes('participants') ? csvParticipants() : csvTrials());
@@ -167,8 +177,8 @@ function admin(req, res, p) {
 const MIME = { '.html': 'text/html; charset=utf-8', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.css': 'text/css', '.js': 'text/javascript' };
 function serve(p, res) {
   if (p === '/') p = '/index.html';
-  // Serve only the participant page and catalog images, never code or response data.
-  if (p !== '/index.html' && !images.some(i => i.src === p)) { res.writeHead(404); return res.end('Not found'); }
+  // Serve only the participant page and catalog images (including grayscale companions), never code or response data.
+  if (p !== '/index.html' && !images.some(i => i.src === p || i.gray === p)) { res.writeHead(404); return res.end('Not found'); }
   const f = path.join(__dirname, decodeURIComponent(p));
   if (!fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end('Not found'); }
   res.writeHead(200, { 'Content-Type': MIME[path.extname(f).toLowerCase()] || 'application/octet-stream', 'X-Content-Type-Options': 'nosniff' });
@@ -180,7 +190,7 @@ http.createServer(async (req, res) => {
     const p = new URL(req.url, 'http://x').pathname;
     if (req.method === 'GET' && p === '/api/config') return json(res, 200, { images });
     if (req.method === 'POST' && p.startsWith('/api/')) return api(p, await readBody(req), res);
-    if (p.startsWith('/admin')) return admin(req, res, p);
+    if (p.startsWith('/admin') || p.startsWith('/analysis')) return admin(req, res, p);
     serve(p, res);
   } catch (e) { json(res, 400, { error: 'bad request' }); }
 }).listen(PORT, BIND_HOST, () => console.log('Loaded ' + images.length + ' images. Study: http://' + BIND_HOST + ':' + PORT + '   Admin: http://' + BIND_HOST + ':' + PORT + '/admin'));

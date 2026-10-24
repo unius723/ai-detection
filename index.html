@@ -30,7 +30,10 @@ button{font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .btn:not(:disabled):hover{transform:translateY(-2px);box-shadow:0 12px 24px -12px rgba(15,17,21,.55)}
 .btn:not(:disabled):active{transform:scale(.985)}
 .btn svg{margin-left:8px;vertical-align:-2px;transition:transform .2s}.btn:not(:disabled):hover svg{transform:translateX(4px)}
+.nav{display:grid;grid-template-columns:minmax(110px,.42fr) 1fr;gap:10px;margin-top:10px}.nav .btn{margin-top:0}
+.btn.secondary{background:#fff;color:var(--ink);border:1px solid #CBD0D6}.btn.secondary:disabled{color:#9298A1;background:#ECEDEF}
 .link{background:none;border:0;padding:6px 0;color:var(--mute);font-size:14px;text-decoration:underline;text-underline-offset:3px}
+.link:disabled{cursor:default;text-decoration:none;color:var(--ink);font-weight:600}
 .err{color:#B42318;font-size:13px;min-height:18px;margin-top:8px}
 .enter{animation:rise .45s cubic-bezier(.2,.7,.2,1)}
 @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
@@ -118,7 +121,7 @@ th{font-weight:500;color:var(--mute);font-size:12px}
         <div class="ends"><span>Not at all</span><span id="cur"></span><span>Very</span></div></div>
       <div class="sec"><button class="link" id="rtog" type="button">+ Add a reason (optional)</button>
         <div id="rbox" hidden><textarea id="reason" maxlength="200" placeholder="What made you decide? (optional)"></textarea><div class="cnt"><span id="cn">0</span> / 200</div></div></div>
-      <button class="btn" id="next" disabled>Next</button>
+      <div class="nav"><button class="btn secondary" id="prev" type="button" disabled>Previous</button><button class="btn" id="next" disabled>Next</button></div>
     </div>
   </div>
 </section>
@@ -133,7 +136,7 @@ th{font-weight:500;color:var(--mute);font-size:12px}
     <button type="button" class="opt" data-est="75" aria-pressed="false">75%</button>
     <button type="button" class="opt" data-est="100" aria-pressed="false">100%</button>
   </div>
-  <button class="btn" id="submit" style="margin-top:20px" disabled>Submit</button></div></section>
+  <div class="nav" style="margin-top:20px"><button class="btn secondary" id="estimate-back" type="button">Previous</button><button class="btn" id="submit" disabled>Submit</button></div></div></section>
 
 <section id="s4" hidden><div class="card">
   <h1 style="font-size:30px">Thank you!</h1>
@@ -233,13 +236,18 @@ function enlarge(){
 }
 $('#zoom-close').onclick=()=>zoom.close();
 zoom.onclick=e=>{if(e.target===zoom)zoom.close();};
-const ready=()=>$('#next').disabled=!(imageReady&&resp&&conf);
-function setResp(k){if(!imageReady)return;resp=k;if(!tChoice)tChoice=performance.now();document.querySelectorAll('[data-k]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.k===k));ready();}
+const ready=()=>$('#next').disabled=!(imageReady&&resp&&conf&&(resp!=='ai'||$('#reason').value.trim()));
+function reasonMode(){
+  const required=resp==='ai',box=$('#rbox'),toggle=$('#rtog'),field=$('#reason');
+  if(required){box.hidden=false;toggle.textContent='Reason required for AI choice';toggle.disabled=true;field.placeholder='Please explain why you think this image is AI-generated (required)';}
+  else{toggle.disabled=false;toggle.textContent=box.hidden?'+ Add a reason (optional)':'− Hide reason';field.placeholder='What made you decide? (optional)';}
+}
+function setResp(k){if(!imageReady)return;resp=k;if(!tChoice)tChoice=performance.now();document.querySelectorAll('[data-k]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.k===k));reasonMode();ready();if(k==='ai')$('#reason').focus();}
 function setConf(c){if(!imageReady)return;conf=+c;$('#cur').textContent=CL[c];scale.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.c==c));ready();}
 document.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>setResp(b.dataset.k));
 scale.onclick=e=>{const b=e.target.closest('button');if(b)setConf(b.dataset.c);};
-$('#rtog').onclick=()=>{const b=$('#rbox');b.hidden=!b.hidden;$('#rtog').textContent=b.hidden?'+ Add a reason (optional)':'− Hide reason';if(!b.hidden)$('#reason').focus();};
-$('#reason').oninput=e=>$('#cn').textContent=e.target.value.length;
+$('#rtog').onclick=()=>{if(resp==='ai')return;const b=$('#rbox');b.hidden=!b.hidden;reasonMode();if(!b.hidden)$('#reason').focus();};
+$('#reason').oninput=e=>{$('#cn').textContent=e.target.value.length;ready();};
 let shownAt='';
 function load(){
   const s=order[idx];imageReady=false;
@@ -249,23 +257,28 @@ function load(){
   $('#next').innerHTML=(idx===order.length-1?'Finish':'Next')+ARR;
   const pic=$('#pic');pic.textContent='';pic.disabled=true;pic.onclick=enlarge;pic.setAttribute('aria-label','Enlarge image');const img=new Image();img.alt='';
   img.onload=()=>{img.classList.add('on');pic.disabled=false;imageReady=true;shownAt=new Date().toISOString();t0=performance.now();document.querySelectorAll('#s2 .opt').forEach(b=>b.disabled=false);ready();};
+  const srcFor = s => (s.colour === 'gray' && s.gray) ? s.gray : s.src;
   img.onerror=()=>{pic.textContent='Image could not load. Click here to retry.';pic.disabled=false;pic.setAttribute('aria-label','Retry loading image');pic.onclick=load;};
-  if(s.colour==='gray')img.style.filter='grayscale(1)';
-  img.src=s.src;pic.appendChild(img);
-  if(idx+1<order.length)new Image().src=order[idx+1].src;
-  resp=null;conf=0;tChoice=0;$('#reason').value='';$('#cn').textContent=0;$('#cur').textContent='';
-  $('#rbox').hidden=true;$('#rtog').textContent='+ Add a reason (optional)';
+  img.src=srcFor(s);pic.appendChild(img);
+  if(idx+1<order.length)new Image().src=srcFor(order[idx+1]);
+  const saved=rows[idx];resp=saved?.response||null;conf=saved?.confidence||0;tChoice=0;$('#reason').value=saved?.reason||'';$('#cn').textContent=$('#reason').value.length;$('#cur').textContent=conf?CL[conf]:'';
+  $('#rbox').hidden=!(resp==='ai'||$('#reason').value);reasonMode();
   document.querySelectorAll('#s2 .opt').forEach(b=>b.setAttribute('aria-pressed','false'));
+  if(resp)document.querySelector(`[data-k="${resp}"]`).setAttribute('aria-pressed','true');
+  if(conf)scale.querySelector(`[data-c="${conf}"]`).setAttribute('aria-pressed','true');
+  $('#prev').disabled=idx===0;
   $('#next').disabled=true;
 }
 $('#next').onclick=()=>{
-  if(!(imageReady&&resp&&conf))return;const s=order[idx],now=performance.now();
+  if(!(imageReady&&resp&&conf&&(resp!=='ai'||$('#reason').value.trim())))return;const s=order[idx],now=performance.now();
   const row={trial:idx+1,image:s.id,category:s.cat,truth:s.truth,ai_realism:s.realism,colour:s.colour,response:resp,
     correct:resp===s.truth?1:0,confidence:conf,reason:$('#reason').value.trim(),
     rt_choice_ms:Math.round(tChoice-t0),rt_total_ms:Math.round(now-t0),shown_at:shownAt};
-  rows.push(row);post('/api/trial',{pid,token,trial:row});idx++;
+  rows[idx]=row;post('/api/trial',{pid,token,trial:row});idx++;
   if(idx>=order.length){progress(100);show(3);}else load();
 };
+$('#prev').onclick=()=>{if(idx>0){idx--;load();}};
+$('#estimate-back').onclick=()=>{idx=order.length-1;show(2);load();};
 
 /* ===== Estimate + results ===== */
 $('#est').onclick=e=>{const b=e.target.closest('[data-est]');if(!b)return;estN=+b.dataset.est;
