@@ -60,8 +60,11 @@ button{font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
 #zoom{position:fixed;inset:0;width:auto;max-width:none;height:auto;max-height:none;margin:0;border:0;padding:64px 20px 24px;background:rgba(10,12,16,.96);overflow:hidden}
 #zoom[open]{display:flex;align-items:center;justify-content:center}
 body:has(#zoom[open]){overflow:hidden}
-#zoom img{display:block;width:min(92vw,900px);height:min(78dvh,680px);max-width:92vw;max-height:78dvh;object-fit:contain;pointer-events:none}
+#zoom-stage{width:min(92vw,900px);height:min(78dvh,680px);display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none}
+#zoom img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none;transform:scale(1);transform-origin:center;transition:transform .12s ease-out;will-change:transform}
 #zoom-close{position:absolute;top:14px;right:20px;border:1px solid #999;border-radius:8px;background:#fff;color:var(--ink);padding:10px 16px}
+#zoom-controls{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:6px;border-radius:12px;background:rgba(255,255,255,.94)}
+#zoom-controls button{width:42px;height:38px;border:0;border-radius:8px;background:#fff;color:var(--ink);font-size:20px}#zoom-level{min-width:52px;text-align:center;font-size:13px;color:var(--ink)}
 .pic img{width:100%;height:100%;object-fit:contain;opacity:0}.pic img.on{opacity:1}
 .sec{margin-bottom:12px}
 .seg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -147,7 +150,8 @@ th{font-weight:500;color:var(--mute);font-size:12px}
 </main>
 <dialog id="zoom" aria-label="Enlarged image">
   <button type="button" id="zoom-close" autofocus>Close ×</button>
-  <img id="zoom-image" alt="Enlarged study image">
+  <div id="zoom-stage"><img id="zoom-image" alt="Enlarged study image"></div>
+  <div id="zoom-controls" aria-label="Image zoom controls"><button type="button" id="zoom-out" aria-label="Zoom out">−</button><span id="zoom-level">100%</span><button type="button" id="zoom-in" aria-label="Zoom in">+</button></div>
 </dialog>
 
 <script>
@@ -229,20 +233,30 @@ const scale=$('#scale');
 for(let i=1;i<=5;i++){const b=document.createElement('button');b.className='opt';b.textContent=i;b.dataset.c=i;b.setAttribute('aria-pressed','false');scale.appendChild(b);}
 let imageReady=false;
 const zoom=$('#zoom');
+const zoomImage=$('#zoom-image'),zoomStage=$('#zoom-stage');let zoomScale=1;
+function setZoomScale(value){zoomScale=Math.min(4,Math.max(1,value));zoomImage.style.transform=`scale(${zoomScale})`;$('#zoom-level').textContent=Math.round(zoomScale*100)+'%';}
 function enlarge(){
   if(!imageReady||zoom.open)return;
-  const img=$('#pic img');$('#zoom-image').src=img.src;$('#zoom-image').style.filter=img.style.filter;
+  const img=$('#pic img');zoomImage.src=img.src;zoomImage.style.filter=img.style.filter;setZoomScale(1);
   zoom.showModal();
 }
 $('#zoom-close').onclick=()=>zoom.close();
 zoom.onclick=e=>{if(e.target===zoom)zoom.close();};
+$('#zoom-in').onclick=()=>setZoomScale(zoomScale+.25);
+$('#zoom-out').onclick=()=>setZoomScale(zoomScale-.25);
+zoomStage.ondblclick=()=>setZoomScale(zoomScale===1?2:1);
+zoomStage.onwheel=e=>{e.preventDefault();setZoomScale(zoomScale+(e.deltaY<0?0.25:-0.25));};
+const zoomPointers=new Map();let pinchDistance=0,pinchScale=1;
+zoomStage.onpointerdown=e=>{zoomStage.setPointerCapture(e.pointerId);zoomPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(zoomPointers.size===2){const [a,b]=[...zoomPointers.values()];pinchDistance=Math.hypot(a.x-b.x,a.y-b.y);pinchScale=zoomScale;}};
+zoomStage.onpointermove=e=>{if(!zoomPointers.has(e.pointerId))return;zoomPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(zoomPointers.size===2&&pinchDistance){const [a,b]=[...zoomPointers.values()];setZoomScale(pinchScale*Math.hypot(a.x-b.x,a.y-b.y)/pinchDistance);}};
+const endZoomPointer=e=>zoomPointers.delete(e.pointerId);zoomStage.onpointerup=endZoomPointer;zoomStage.onpointercancel=endZoomPointer;
 const ready=()=>$('#next').disabled=!(imageReady&&resp&&conf&&(resp!=='ai'||$('#reason').value.trim()));
 function reasonMode(){
   const required=resp==='ai',box=$('#rbox'),toggle=$('#rtog'),field=$('#reason');
   if(required){box.hidden=false;toggle.textContent='Reason required for AI choice';toggle.disabled=true;field.placeholder='Please explain why you think this image is AI-generated (required)';}
   else{toggle.disabled=false;toggle.textContent=box.hidden?'+ Add a reason (optional)':'− Hide reason';field.placeholder='What made you decide? (optional)';}
 }
-function setResp(k){if(!imageReady)return;resp=k;if(!tChoice)tChoice=performance.now();document.querySelectorAll('[data-k]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.k===k));reasonMode();ready();if(k==='ai')$('#reason').focus();}
+function setResp(k){if(!imageReady)return;resp=k;if(!tChoice)tChoice=performance.now();document.querySelectorAll('[data-k]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.k===k));reasonMode();ready();}
 function setConf(c){if(!imageReady)return;conf=+c;$('#cur').textContent=CL[c];scale.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.c==c));ready();}
 document.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>setResp(b.dataset.k));
 scale.onclick=e=>{const b=e.target.closest('button');if(b)setConf(b.dataset.c);};
