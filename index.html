@@ -60,7 +60,9 @@ button{font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
 #zoom{position:fixed;inset:0;width:auto;max-width:none;height:auto;max-height:none;margin:0;border:0;padding:64px 20px 24px;background:rgba(10,12,16,.96);overflow:hidden}
 #zoom[open]{display:flex;align-items:center;justify-content:center}
 body:has(#zoom[open]){overflow:hidden}
-#zoom-stage{width:min(92vw,900px);height:min(78dvh,680px);display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none}
+#zoom-stage{width:min(92vw,900px);height:min(78dvh,680px);display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;cursor:grab}
+#zoom-stage.dragging{cursor:grabbing}
+#zoom-stage.dragging img{transition:none}
 #zoom img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none;transform:scale(1);transform-origin:center;transition:transform .12s ease-out;will-change:transform}
 #zoom-close{position:absolute;top:14px;right:20px;border:1px solid #999;border-radius:8px;background:#fff;color:var(--ink);padding:10px 16px}
 #zoom-controls{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:6px;border-radius:12px;background:rgba(255,255,255,.94)}
@@ -233,8 +235,13 @@ const scale=$('#scale');
 for(let i=1;i<=5;i++){const b=document.createElement('button');b.className='opt';b.textContent=i;b.dataset.c=i;b.setAttribute('aria-pressed','false');scale.appendChild(b);}
 let imageReady=false;
 const zoom=$('#zoom');
-const zoomImage=$('#zoom-image'),zoomStage=$('#zoom-stage');let zoomScale=1;
-function setZoomScale(value){zoomScale=Math.min(4,Math.max(1,value));zoomImage.style.transform=`scale(${zoomScale})`;$('#zoom-level').textContent=Math.round(zoomScale*100)+'%';}
+const zoomImage=$('#zoom-image'),zoomStage=$('#zoom-stage');let zoomScale=1,panX=0,panY=0;
+function panBounds(){
+  const sw=zoomStage.clientWidth,sh=zoomStage.clientHeight,nw=zoomImage.naturalWidth||sw,nh=zoomImage.naturalHeight||sh,fit=Math.min(sw/nw,sh/nh);
+  return{x:Math.max(0,(nw*fit*zoomScale-sw)/2),y:Math.max(0,(nh*fit*zoomScale-sh)/2)};
+}
+function drawZoom(){const b=panBounds();panX=Math.max(-b.x,Math.min(b.x,panX));panY=Math.max(-b.y,Math.min(b.y,panY));zoomImage.style.transform=`translate3d(${panX}px,${panY}px,0) scale(${zoomScale})`;$('#zoom-level').textContent=Math.round(zoomScale*100)+'%';}
+function setZoomScale(value){zoomScale=Math.min(4,Math.max(1,value));if(zoomScale===1)panX=panY=0;drawZoom();}
 function enlarge(){
   if(!imageReady||zoom.open)return;
   const img=$('#pic img');zoomImage.src=img.src;zoomImage.style.filter=img.style.filter;setZoomScale(1);
@@ -247,9 +254,9 @@ $('#zoom-out').onclick=()=>setZoomScale(zoomScale-.25);
 zoomStage.ondblclick=()=>setZoomScale(zoomScale===1?2:1);
 zoomStage.onwheel=e=>{e.preventDefault();setZoomScale(zoomScale+(e.deltaY<0?0.25:-0.25));};
 const zoomPointers=new Map();let pinchDistance=0,pinchScale=1;
-zoomStage.onpointerdown=e=>{zoomStage.setPointerCapture(e.pointerId);zoomPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(zoomPointers.size===2){const [a,b]=[...zoomPointers.values()];pinchDistance=Math.hypot(a.x-b.x,a.y-b.y);pinchScale=zoomScale;}};
-zoomStage.onpointermove=e=>{if(!zoomPointers.has(e.pointerId))return;zoomPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(zoomPointers.size===2&&pinchDistance){const [a,b]=[...zoomPointers.values()];setZoomScale(pinchScale*Math.hypot(a.x-b.x,a.y-b.y)/pinchDistance);}};
-const endZoomPointer=e=>zoomPointers.delete(e.pointerId);zoomStage.onpointerup=endZoomPointer;zoomStage.onpointercancel=endZoomPointer;
+zoomStage.onpointerdown=e=>{zoomStage.setPointerCapture(e.pointerId);zoomPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});zoomStage.classList.add('dragging');if(zoomPointers.size===2){const [a,b]=[...zoomPointers.values()];pinchDistance=Math.hypot(a.x-b.x,a.y-b.y);pinchScale=zoomScale;}};
+zoomStage.onpointermove=e=>{const old=zoomPointers.get(e.pointerId);if(!old)return;zoomPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(zoomPointers.size===2&&pinchDistance){const [a,b]=[...zoomPointers.values()];setZoomScale(pinchScale*Math.hypot(a.x-b.x,a.y-b.y)/pinchDistance);}else if(zoomPointers.size===1&&zoomScale>1){panX+=e.clientX-old.x;panY+=e.clientY-old.y;drawZoom();}};
+const endZoomPointer=e=>{zoomPointers.delete(e.pointerId);if(!zoomPointers.size)zoomStage.classList.remove('dragging');};zoomStage.onpointerup=endZoomPointer;zoomStage.onpointercancel=endZoomPointer;
 const ready=()=>$('#next').disabled=!(imageReady&&resp&&conf&&(resp!=='ai'||$('#reason').value.trim()));
 function reasonMode(){
   const required=resp==='ai',box=$('#rbox'),toggle=$('#rtog'),field=$('#reason');
