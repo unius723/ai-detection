@@ -90,8 +90,18 @@ AI 的 high/mid/low 逼真度尚未标注，导出的 `ai_realism` 留空，不�
 
 后台用户名仍为 `admin`。云端密码由 Render 自动生成，在该服务 Environment 页面查看 `ADMIN_PASSWORD`；不要使用本地测试密码登录云端。密码不保存在 GitHub 中。
 
-答案临时保存在 `/tmp/ai-detection-data/events.jsonl`。请及时导出 CSV，并保留所需备份。此版本使用文件保存记录，保持单实例运行。
+未设置 `DATABASE_URL` 时，答案临时保存在 `/tmp/ai-detection-data/events.jsonl`，重新部署、重启或休眠后可能丢失。设置 `DATABASE_URL` 后，服务会自动创建 `study_events` 表并将新记录保存到 PostgreSQL；后台查看、删除和 CSV 导出功能保持不变。
 
 已关闭提交后的自动部署，避免收集答案期间因更新产生服务中断。后续更新请在无人答题时使用 Manual Deploy。
 
-Render 免费服务空闲约 15 分钟后会休眠，下一次访问需要等待它重新启动。免费服务没有持久化磁盘；休眠、重启或重新部署都可能清空参与者记录。因此免费版只适合测试，测试期间请及时在管理后台导出 CSV。正式收集数据时应改用带持久化磁盘的付费服务，或把记录存入外部数据库。
+Render 免费服务空闲约 15 分钟后会休眠，下一次访问需要等待它重新启动。即使连接数据库，仍建议定期在管理后台导出 CSV 备份。
+
+## Neon 免费数据库
+
+1. 在 Neon 创建一个免费 PostgreSQL 项目，区域尽量选择靠近 Render 新加坡服务的区域。
+2. 在 Neon 的 Connect 页面复制连接字符串，选择 pooled connection，并确保连接字符串包含 `sslmode=require`。
+3. 打开 Render 服务的 Environment 页面，新增 Secret：`DATABASE_URL`，值为 Neon 提供的完整连接字符串。不要把这个值写入代码、README 或 GitHub。
+4. 保存后手动重新部署。日志出现 `Using PostgreSQL storage` 表示连接成功。
+5. 完成一次测试，在 `/admin` 中确认记录存在；再次重新部署后确认记录仍在。
+
+本地不设置 `DATABASE_URL` 时仍使用 `data/events.jsonl`，无需 PostgreSQL。Neon 数据库为空时会自动创建所需表。连接数据库后，旧的 Render 临时 JSON 文件不会自动迁移；正式收集前应先完成切换和验证。

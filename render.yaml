@@ -7,8 +7,8 @@ services:
     region: singapore
     plan: free
     numInstances: 1
-    buildCommand: node --check server.js
-    startCommand: node server.js
+    buildCommand: npm install --omit=dev && npm run check
+    startCommand: npm start
     healthCheckPath: /api/config
     autoDeployTrigger: "off"
     envVars:

@@ -1,0 +1,17 @@
+{
+  "name": "ai-detection-study",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Image classification experiment server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "pg": "8.16.3"
+  }
+}

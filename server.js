@@ -1,8 +1,9 @@
-// Zero-dependency server (Node 18+).  Run:  ADMIN_PASSWORD=yourpassword node server.js
+// Node 18+ server. Locally it uses JSONL; set DATABASE_URL to use PostgreSQL/Neon.
 const http = require('http'), fs = require('fs'), path = require('path'), crypto = require('crypto');
 const PORT = process.env.PORT || 3000, PASS = process.env.ADMIN_PASSWORD || '';
 const BIND_HOST = process.env.BIND_HOST || '127.0.0.1';
 const DIR = process.env.DATA_DIR || path.join(__dirname, 'data'), LOG = path.join(DIR, 'events.jsonl');
+const DATABASE_URL = process.env.DATABASE_URL || '';
 // Use the existing image folders; filenames and extensions do not need to change.
 // Each colour stimulus may have a companion grayscale file named <base>_gray.<ext> in the same folder.
 const images = [];
@@ -21,11 +22,11 @@ for (const category of ['portrait', 'landscape']) for (const truth of ['real', '
   }
 }
 const catalog = new Map(images.map(i => [i.id, i]));
-fs.mkdirSync(DIR, { recursive: true });
+if (!DATABASE_URL) fs.mkdirSync(DIR, { recursive: true });
 if (!PASS) console.warn('! ADMIN_PASSWORD is not set: the /admin dashboard is disabled.');
 
-/* ---------- storage: append events; atomically rewrite when deleting a participant ---------- */
-let events = fs.existsSync(LOG) ? fs.readFileSync(LOG, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)) : [];
+/* ---------- storage: Neon Postgres in production; JSONL fallback for local testing ---------- */
+let events = [], pool;
 const tokens = new Map(), plans = new Map(), seen = new Set(), done = new Set(); let counter = 0;
 function index(e) {
   if (e.type === 'counter') counter = Math.max(counter, e.value);
@@ -33,28 +34,66 @@ function index(e) {
   if (e.type === 'trial') seen.add(e.pid + ':' + e.trial.trial);
   if (e.type === 'finish') done.add(e.pid);
 }
-events.forEach(index);
-function add(e) { e.t = new Date().toISOString(); events.push(e); index(e); fs.appendFileSync(LOG, JSON.stringify(e) + '\n'); }
-function deleteParticipant(pid) {
+async function initStorage() {
+  if (DATABASE_URL) {
+    const { Pool } = require('pg');
+    pool = new Pool({ connectionString: DATABASE_URL, max: 5, idleTimeoutMillis: 30000 });
+    await pool.query('CREATE TABLE IF NOT EXISTS study_events (id BIGSERIAL PRIMARY KEY, event JSONB NOT NULL)');
+    const result = await pool.query('SELECT event FROM study_events ORDER BY id');
+    events = result.rows.map(row => row.event);
+    console.log('Using PostgreSQL storage. Loaded ' + events.length + ' events.');
+  } else {
+    events = fs.existsSync(LOG) ? fs.readFileSync(LOG, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)) : [];
+    console.log('Using local JSONL storage. Loaded ' + events.length + ' events.');
+  }
+  events.forEach(index);
+}
+async function add(e) {
+  e.t = new Date().toISOString();
+  if (pool) await pool.query('INSERT INTO study_events (event) VALUES ($1::jsonb)', [JSON.stringify(e)]);
+  else fs.appendFileSync(LOG, JSON.stringify(e) + '\n');
+  events.push(e); index(e);
+}
+async function deleteParticipant(pid) {
   if (!tokens.has(pid)) return false;
   // Retain only the ID high-water mark so deleted IDs are never reused after restart.
   const remaining = events.filter(e => e.pid !== pid && e.type !== 'counter');
   remaining.push({ type: 'counter', value: counter });
-  const tmp = path.join(DIR, 'events-' + crypto.randomBytes(8).toString('hex') + '.tmp');
-  let fd;
-  try {
-    fd = fs.openSync(tmp, 'wx', 0o600);
-    fs.writeFileSync(fd, remaining.map(e => JSON.stringify(e)).join('\n') + '\n');
-    fs.fsyncSync(fd); fs.closeSync(fd); fd = undefined;
-    fs.renameSync(tmp, LOG);
-  } finally {
-    if (fd !== undefined) fs.closeSync(fd);
-    if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
+  if (pool) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("DELETE FROM study_events WHERE event->>'pid' = $1 OR event->>'type' = 'counter'", [pid]);
+      await client.query('INSERT INTO study_events (event) VALUES ($1::jsonb)', [JSON.stringify(remaining[remaining.length - 1])]);
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK'); throw e;
+    } finally { client.release(); }
+  } else {
+    const tmp = path.join(DIR, 'events-' + crypto.randomBytes(8).toString('hex') + '.tmp');
+    let fd;
+    try {
+      fd = fs.openSync(tmp, 'wx', 0o600);
+      fs.writeFileSync(fd, remaining.map(e => JSON.stringify(e)).join('\n') + '\n');
+      fs.fsyncSync(fd); fs.closeSync(fd); fd = undefined;
+      fs.renameSync(tmp, LOG);
+    } finally {
+      if (fd !== undefined) fs.closeSync(fd);
+      if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
+    }
   }
   // Update memory only after the replacement file has been saved successfully.
   events = remaining; tokens.delete(pid); plans.delete(pid); done.delete(pid);
   for (const key of seen) if (key.startsWith(pid + ':')) seen.delete(key);
   return true;
+}
+
+// Serialize mutations so participant numbers and event ordering stay deterministic.
+let writeTail = Promise.resolve();
+function serialWrite(fn) {
+  const task = writeTail.then(fn, fn);
+  writeTail = task.catch(() => {});
+  return task;
 }
 
 /* ---------- helpers ---------- */
@@ -64,17 +103,21 @@ const readBody = req => new Promise((ok, no) => { let d = ''; req.on('data', c =
 const sha = s => crypto.createHash('sha256').update(s).digest();
 
 /* ---------- participant API ---------- */
-function api(p, b, res) {
+async function api(p, b, res) {
   if (p === '/api/start') {
     if (!images.length || !Array.isArray(b.plan) || b.plan.length !== images.length ||
       new Set(b.plan.map(x => x.image)).size !== images.length ||
       b.plan.some(x => !catalog.has(x.image) || !['color', 'gray'].includes(x.colour))) return json(res, 400, { error: 'invalid image plan' });
-    const pid = 'P' + String(++counter).padStart(3, '0'), token = crypto.randomBytes(8).toString('hex');
-    const d = b.device || {};
-    add({ type: 'start', pid, token, major: str(b.major, 60),
-      plan: b.plan.map(x => ({ image: x.image, colour: x.colour })),
-      device: { w: +d.w || 0, h: +d.h || 0, ua: str(d.ua, 200), tz: str(d.tz, 40) } });
-    return json(res, 200, { pid, token });
+    return serialWrite(async () => {
+      const pid = 'P' + String(++counter).padStart(3, '0'), token = crypto.randomBytes(8).toString('hex');
+      const d = b.device || {};
+      try {
+        await add({ type: 'start', pid, token, major: str(b.major, 60),
+          plan: b.plan.map(x => ({ image: x.image, colour: x.colour })),
+          device: { w: +d.w || 0, h: +d.h || 0, ua: str(d.ua, 200), tz: str(d.tz, 40) } });
+      } catch (e) { counter--; throw e; }
+      return json(res, 200, { pid, token });
+    });
   }
   if (!tokens.has(b.pid) || tokens.get(b.pid) !== b.token) return json(res, 403, { error: 'invalid session' });
   if (p === '/api/trial') {
@@ -84,10 +127,10 @@ function api(p, b, res) {
     if (!Number.isInteger(n) || !stimulus || t.image !== expected.image || t.colour !== expected.colour || !['real', 'ai'].includes(t.response) || !Number.isInteger(+t.confidence) || !(+t.confidence >= 1 && +t.confidence <= 5) || (t.response === 'ai' && !reason)) return json(res, 400, { error: 'bad trial' });
     if (done.has(b.pid)) return json(res, 409, { error: 'session already completed' });
     // Revisited questions append a new event; aggregation keeps the latest answer for each trial.
-    add({ type: 'trial', pid: b.pid, trial: {
+    await serialWrite(() => add({ type: 'trial', pid: b.pid, trial: {
       trial: n, image: stimulus.id, category: stimulus.cat, truth: stimulus.truth, ai_realism: stimulus.realism,
       colour: expected.colour, response: t.response, correct: t.response === stimulus.truth ? 1 : 0, confidence: +t.confidence,
-      reason, rt_choice_ms: +t.rt_choice_ms || 0, rt_total_ms: +t.rt_total_ms || 0, shown_at: str(t.shown_at, 40) } });
+      reason, rt_choice_ms: +t.rt_choice_ms || 0, rt_total_ms: +t.rt_total_ms || 0, shown_at: str(t.shown_at, 40) } }));
     return json(res, 200, { ok: 1 });
   }
   if (p === '/api/finish') {
@@ -97,8 +140,8 @@ function api(p, b, res) {
     if (isPercent ? ![0, 25, 50, 75, 100].includes(b.estimatePercent) :
       (b.estimate == null || !Number.isInteger(+b.estimate) || +b.estimate < 0 || +b.estimate > total)) return json(res, 400, { error: 'bad estimate' });
     if (Array.from({ length: total }, (_, i) => i + 1).some(n => !seen.has(b.pid + ':' + n))) return json(res, 409, { error: 'trials still missing' });
-    if (!done.has(b.pid)) add({ type: 'finish', pid: b.pid,
-      ...(isPercent ? { estimatePercent: b.estimatePercent } : { estimate: +b.estimate }), clientSec: +b.clientSec || 0 });
+    if (!done.has(b.pid)) await serialWrite(() => add({ type: 'finish', pid: b.pid,
+      ...(isPercent ? { estimatePercent: b.estimatePercent } : { estimate: +b.estimate }), clientSec: +b.clientSec || 0 }));
     return json(res, 200, { ok: 1 });
   }
   json(res, 404, { error: 'not found' });
@@ -147,7 +190,7 @@ function authed(req) {
   const pw = Buffer.from(h.slice(6), 'base64').toString().split(':').slice(1).join(':');
   return crypto.timingSafeEqual(sha(pw), sha(PASS));
 }
-function admin(req, res, p) {
+async function admin(req, res, p) {
   if (!PASS) { res.writeHead(403); return res.end('Set ADMIN_PASSWORD and restart the server.'); }
   if (!authed(req)) { res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Study admin"' }); return res.end('Login required'); }
   const participant = p.match(/^\/admin\/participants\/(P\d+)$/);
@@ -156,7 +199,7 @@ function admin(req, res, p) {
     // A cross-origin page cannot send this header without a CORS preflight, which we do not allow.
     if (req.headers['x-study-admin'] !== '1' || req.headers['sec-fetch-site'] === 'cross-site') return json(res, 403, { error: 'invalid admin request' });
     try {
-      if (!deleteParticipant(participant[1])) return json(res, 404, { error: 'participant not found' });
+      if (!await serialWrite(() => deleteParticipant(participant[1]))) return json(res, 404, { error: 'participant not found' });
       return json(res, 200, { ok: 1 });
     } catch (e) {
       console.error('Could not save participant deletion:', e.message);
@@ -185,12 +228,19 @@ function serve(p, res) {
   fs.createReadStream(f).pipe(res);
 }
 
-http.createServer(async (req, res) => {
+const server = http.createServer(async (req, res) => {
   try {
     const p = new URL(req.url, 'http://x').pathname;
     if (req.method === 'GET' && p === '/api/config') return json(res, 200, { images });
-    if (req.method === 'POST' && p.startsWith('/api/')) return api(p, await readBody(req), res);
-    if (p.startsWith('/admin') || p.startsWith('/analysis')) return admin(req, res, p);
+    if (req.method === 'POST' && p.startsWith('/api/')) return await api(p, await readBody(req), res);
+    if (p.startsWith('/admin') || p.startsWith('/analysis')) return await admin(req, res, p);
     serve(p, res);
   } catch (e) { json(res, 400, { error: 'bad request' }); }
-}).listen(PORT, BIND_HOST, () => console.log('Loaded ' + images.length + ' images. Study: http://' + BIND_HOST + ':' + PORT + '   Admin: http://' + BIND_HOST + ':' + PORT + '/admin'));
+});
+
+initStorage().then(() => {
+  server.listen(PORT, BIND_HOST, () => console.log('Loaded ' + images.length + ' images. Study: http://' + BIND_HOST + ':' + PORT + '   Admin: http://' + BIND_HOST + ':' + PORT + '/admin'));
+}).catch(e => {
+  console.error('Storage initialization failed:', e.message);
+  process.exitCode = 1;
+});
