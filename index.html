@@ -278,8 +278,12 @@ function load(){
   const pic=$('#pic');pic.textContent='';pic.disabled=true;pic.setAttribute('aria-busy','true');pic.onclick=enlarge;pic.setAttribute('aria-label','Enlarge image');
   const loading=document.createElement('span');loading.className='loading';loading.textContent='Loading image…';
   const img=new Image();img.alt='';
-  img.onload=()=>{loading.remove();pic.removeAttribute('aria-busy');img.classList.add('on');pic.disabled=false;imageReady=true;shownAt=new Date().toISOString();t0=performance.now();document.querySelectorAll('#s2 .opt').forEach(b=>b.disabled=false);ready();};
   const srcFor = s => (s.colour === 'gray' && s.gray) ? s.gray : s.src;
+  img.onload=()=>{
+    loading.remove();pic.removeAttribute('aria-busy');img.classList.add('on');pic.disabled=false;imageReady=true;shownAt=new Date().toISOString();t0=performance.now();document.querySelectorAll('#s2 .opt').forEach(b=>b.disabled=false);ready();
+    // Keep the start page fast: only fetch the next image after the current one is visible.
+    if(idx+1<order.length){const nextImage=new Image();nextImage.src=srcFor(order[idx+1]);}
+  };
   img.onerror=()=>{pic.removeAttribute('aria-busy');pic.textContent='Image could not load. Click here to retry.';pic.disabled=false;pic.setAttribute('aria-label','Retry loading image');pic.onclick=load;};
   img.src=srcFor(s);pic.append(loading,img);
   const saved=rows[idx];resp=saved?.response||null;conf=saved?.confidence||0;tChoice=0;$('#reason').value=saved?.reason||'';$('#cn').textContent=$('#reason').value.length;$('#cur').textContent=conf?CL[conf]:'';
