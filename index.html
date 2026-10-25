@@ -54,8 +54,9 @@ button{font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .count{font-size:13px;color:var(--mute);margin-bottom:8px;font-variant-numeric:tabular-nums}
 .dots{display:flex;gap:3px;margin-bottom:10px}.dots i{flex:1;height:4px;border-radius:2px;background:var(--line);transition:background .25s,transform .25s}
 .dots i.d{background:var(--ink)}.dots i.c{background:var(--acc);transform:scaleY(2)}
-.pic{background:#E9EAEC;border:0;border-radius:14px;aspect-ratio:4/3;max-height:34dvh;width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;color:var(--mute);font-size:13px;text-align:center;padding:10px;cursor:zoom-in;touch-action:manipulation}
+.pic{position:relative;background:#E9EAEC;border:0;border-radius:14px;aspect-ratio:4/3;max-height:34dvh;width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;color:var(--mute);font-size:13px;text-align:center;padding:10px;cursor:zoom-in;touch-action:manipulation}
 .pic:disabled{cursor:wait}
+.pic .loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:10px}
 .zoom-hint{font-size:12px;text-align:center;margin-top:8px}
 #zoom{position:fixed;inset:0;width:auto;max-width:none;height:auto;max-height:none;margin:0;border:0;padding:64px 20px 24px;background:rgba(10,12,16,.96);overflow:hidden}
 #zoom[open]{display:flex;align-items:center;justify-content:center}
@@ -183,7 +184,6 @@ async function configure(){
   try{
     const r=await fetch('/api/config');if(!r.ok)throw new Error('Cannot load study configuration.');
     ({images:stimuli}=await r.json());if(!stimuli.length)throw new Error('No images found in the image folders.');
-    await Promise.all(stimuli.map(s=>new Promise((resolve,reject)=>{const img=new Image();img.onload=resolve;img.onerror=()=>reject(new Error('Cannot load image: '+s.src));img.src=s.src;})));
     const total=stimuli.length;
     $('#image-total').textContent=total+' images';$('#study-time').textContent='About '+Math.ceil(total*.6)+' min';
     configReady=true;check();
@@ -276,12 +276,13 @@ function load(){
   $('#count').textContent=`${idx+1} / ${order.length}`;progress(idx/order.length*100);
   document.querySelectorAll('#dots i').forEach((d,i)=>d.className=i<idx?'d':(i===idx?'c':''));
   $('#next').innerHTML=(idx===order.length-1?'Finish':'Next')+ARR;
-  const pic=$('#pic');pic.textContent='';pic.disabled=true;pic.onclick=enlarge;pic.setAttribute('aria-label','Enlarge image');const img=new Image();img.alt='';
-  img.onload=()=>{img.classList.add('on');pic.disabled=false;imageReady=true;shownAt=new Date().toISOString();t0=performance.now();document.querySelectorAll('#s2 .opt').forEach(b=>b.disabled=false);ready();};
+  const pic=$('#pic');pic.textContent='';pic.disabled=true;pic.setAttribute('aria-busy','true');pic.onclick=enlarge;pic.setAttribute('aria-label','Enlarge image');
+  const loading=document.createElement('span');loading.className='loading';loading.textContent='Loading image…';
+  const img=new Image();img.alt='';
+  img.onload=()=>{loading.remove();pic.removeAttribute('aria-busy');img.classList.add('on');pic.disabled=false;imageReady=true;shownAt=new Date().toISOString();t0=performance.now();document.querySelectorAll('#s2 .opt').forEach(b=>b.disabled=false);ready();};
   const srcFor = s => (s.colour === 'gray' && s.gray) ? s.gray : s.src;
-  img.onerror=()=>{pic.textContent='Image could not load. Click here to retry.';pic.disabled=false;pic.setAttribute('aria-label','Retry loading image');pic.onclick=load;};
-  img.src=srcFor(s);pic.appendChild(img);
-  if(idx+1<order.length)new Image().src=srcFor(order[idx+1]);
+  img.onerror=()=>{pic.removeAttribute('aria-busy');pic.textContent='Image could not load. Click here to retry.';pic.disabled=false;pic.setAttribute('aria-label','Retry loading image');pic.onclick=load;};
+  img.src=srcFor(s);pic.append(loading,img);
   const saved=rows[idx];resp=saved?.response||null;conf=saved?.confidence||0;tChoice=0;$('#reason').value=saved?.reason||'';$('#cn').textContent=$('#reason').value.length;$('#cur').textContent=conf?CL[conf]:'';
   $('#rbox').hidden=!(resp==='ai'||$('#reason').value);reasonMode();
   document.querySelectorAll('#s2 .opt').forEach(b=>b.setAttribute('aria-pressed','false'));
