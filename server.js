@@ -124,7 +124,7 @@ async function api(p, b, res) {
     const t = b.trial || {}, n = +t.trial;
     const plan = plans.get(b.pid), expected = plan[n - 1], stimulus = expected && catalog.get(expected.image);
     const reason = str(t.reason, 200).trim();
-    if (!Number.isInteger(n) || !stimulus || t.image !== expected.image || t.colour !== expected.colour || !['real', 'ai'].includes(t.response) || !Number.isInteger(+t.confidence) || !(+t.confidence >= 1 && +t.confidence <= 5) || (t.response === 'ai' && !reason)) return json(res, 400, { error: 'bad trial' });
+    if (!Number.isInteger(n) || !stimulus || t.image !== expected.image || t.colour !== expected.colour || !['real', 'ai'].includes(t.response) || !Number.isInteger(+t.confidence) || !(+t.confidence >= 1 && +t.confidence <= 5)) return json(res, 400, { error: 'bad trial' });
     if (done.has(b.pid)) return json(res, 409, { error: 'session already completed' });
     // Revisited questions append a new event; aggregation keeps the latest answer for each trial.
     await serialWrite(() => add({ type: 'trial', pid: b.pid, trial: {

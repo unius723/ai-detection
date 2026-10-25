@@ -257,17 +257,16 @@ const zoomPointers=new Map();let pinchDistance=0,pinchScale=1;
 zoomStage.onpointerdown=e=>{zoomStage.setPointerCapture(e.pointerId);zoomPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});zoomStage.classList.add('dragging');if(zoomPointers.size===2){const [a,b]=[...zoomPointers.values()];pinchDistance=Math.hypot(a.x-b.x,a.y-b.y);pinchScale=zoomScale;}};
 zoomStage.onpointermove=e=>{const old=zoomPointers.get(e.pointerId);if(!old)return;zoomPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(zoomPointers.size===2&&pinchDistance){const [a,b]=[...zoomPointers.values()];setZoomScale(pinchScale*Math.hypot(a.x-b.x,a.y-b.y)/pinchDistance);}else if(zoomPointers.size===1&&zoomScale>1){panX+=e.clientX-old.x;panY+=e.clientY-old.y;drawZoom();}};
 const endZoomPointer=e=>{zoomPointers.delete(e.pointerId);if(!zoomPointers.size)zoomStage.classList.remove('dragging');};zoomStage.onpointerup=endZoomPointer;zoomStage.onpointercancel=endZoomPointer;
-const ready=()=>$('#next').disabled=!(imageReady&&resp&&conf&&(resp!=='ai'||$('#reason').value.trim()));
+const ready=()=>$('#next').disabled=!(imageReady&&resp&&conf);
 function reasonMode(){
-  const required=resp==='ai',box=$('#rbox'),toggle=$('#rtog'),field=$('#reason');
-  if(required){box.hidden=false;toggle.textContent='Reason required for AI choice';toggle.disabled=true;field.placeholder='Please explain why you think this image is AI-generated (required)';}
-  else{toggle.disabled=false;toggle.textContent=box.hidden?'+ Add a reason (optional)':'− Hide reason';field.placeholder='What made you decide? (optional)';}
+  const box=$('#rbox'),toggle=$('#rtog'),field=$('#reason');
+  toggle.disabled=false;toggle.textContent=box.hidden?'+ Add a reason (optional)':'− Hide reason';field.placeholder='What made you decide? (optional)';
 }
 function setResp(k){if(!imageReady)return;resp=k;if(!tChoice)tChoice=performance.now();document.querySelectorAll('[data-k]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.k===k));reasonMode();ready();}
 function setConf(c){if(!imageReady)return;conf=+c;$('#cur').textContent=CL[c];scale.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.c==c));ready();}
 document.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>setResp(b.dataset.k));
 scale.onclick=e=>{const b=e.target.closest('button');if(b)setConf(b.dataset.c);};
-$('#rtog').onclick=()=>{if(resp==='ai')return;const b=$('#rbox');b.hidden=!b.hidden;reasonMode();if(!b.hidden)$('#reason').focus();};
+$('#rtog').onclick=()=>{const b=$('#rbox');b.hidden=!b.hidden;reasonMode();if(!b.hidden)$('#reason').focus();};
 $('#reason').oninput=e=>{$('#cn').textContent=e.target.value.length;ready();};
 let shownAt='';
 function load(){
@@ -284,7 +283,7 @@ function load(){
   img.onerror=()=>{pic.removeAttribute('aria-busy');pic.textContent='Image could not load. Click here to retry.';pic.disabled=false;pic.setAttribute('aria-label','Retry loading image');pic.onclick=load;};
   img.src=srcFor(s);pic.append(loading,img);
   const saved=rows[idx];resp=saved?.response||null;conf=saved?.confidence||0;tChoice=0;$('#reason').value=saved?.reason||'';$('#cn').textContent=$('#reason').value.length;$('#cur').textContent=conf?CL[conf]:'';
-  $('#rbox').hidden=!(resp==='ai'||$('#reason').value);reasonMode();
+  $('#rbox').hidden=!$('#reason').value;reasonMode();
   document.querySelectorAll('#s2 .opt').forEach(b=>b.setAttribute('aria-pressed','false'));
   if(resp)document.querySelector(`[data-k="${resp}"]`).setAttribute('aria-pressed','true');
   if(conf)scale.querySelector(`[data-c="${conf}"]`).setAttribute('aria-pressed','true');
@@ -292,7 +291,7 @@ function load(){
   $('#next').disabled=true;
 }
 $('#next').onclick=()=>{
-  if(!(imageReady&&resp&&conf&&(resp!=='ai'||$('#reason').value.trim())))return;const s=order[idx],now=performance.now();
+  if(!(imageReady&&resp&&conf))return;const s=order[idx],now=performance.now();
   const row={trial:idx+1,image:s.id,category:s.cat,truth:s.truth,ai_realism:s.realism,colour:s.colour,response:resp,
     correct:resp===s.truth?1:0,confidence:conf,reason:$('#reason').value.trim(),
     rt_choice_ms:Math.round(tChoice-t0),rt_total_ms:Math.round(now-t0),shown_at:shownAt};
