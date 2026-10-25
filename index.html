@@ -223,7 +223,7 @@ const check=()=>$('#start').disabled=!(configReady&&$('#major').value.trim()&&$(
 $('#major').oninput=check;$('#cons').onchange=check;
 let pid='',token='',order=[],idx=0,rows=[],t0=0,tChoice=0,resp=null,conf=0,tStart=0,estN=null;
 $('#start').onclick=async()=>{
-  const b=$('#start');b.disabled=true;$('#err').textContent='';order=makePlan();preloadOne(order[0]);
+  const b=$('#start');b.disabled=true;$('#err').textContent='';order=makePlan();
   try{const r=await fetch('/api/start',{method:'POST',headers:H,body:JSON.stringify({major:$('#major').value.trim(),
       plan:order.map(s=>({image:s.id,colour:s.colour})),
       device:{w:innerWidth,h:innerHeight,ua:navigator.userAgent,tz:Intl.DateTimeFormat().resolvedOptions().timeZone}})});

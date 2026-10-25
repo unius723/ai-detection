@@ -30,7 +30,7 @@ let events = [], pool;
 const tokens = new Map(), plans = new Map(), seen = new Set(), done = new Set(); let counter = 0;
 function index(e) {
   if (e.type === 'counter') counter = Math.max(counter, e.value);
-  if (e.type === 'start') { tokens.set(e.pid, e.token); plans.set(e.pid, e.plan); counter = Math.max(counter, +e.pid.slice(1)); }
+  if (e.type === 'start') { tokens.set(e.pid, e.token); plans.set(e.pid, e.plan); counter = Math.max(counter, +(e.pid.match(/\d+$/) || [0])[0]); }
   if (e.type === 'trial') seen.add(e.pid + ':' + e.trial.trial);
   if (e.type === 'finish') done.add(e.pid);
 }
@@ -109,7 +109,7 @@ async function api(p, b, res) {
       new Set(b.plan.map(x => x.image)).size !== images.length ||
       b.plan.some(x => !catalog.has(x.image) || !['color', 'gray'].includes(x.colour))) return json(res, 400, { error: 'invalid image plan' });
     return serialWrite(async () => {
-      const pid = 'P' + String(++counter).padStart(3, '0'), token = crypto.randomBytes(8).toString('hex');
+      const pid = 'PD' + String(++counter).padStart(3, '0'), token = crypto.randomBytes(8).toString('hex');
       const d = b.device || {};
       try {
         await add({ type: 'start', pid, token, major: str(b.major, 60),
@@ -193,7 +193,7 @@ function authed(req) {
 async function admin(req, res, p) {
   if (!PASS) { res.writeHead(403); return res.end('Set ADMIN_PASSWORD and restart the server.'); }
   if (!authed(req)) { res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Study admin"' }); return res.end('Login required'); }
-  const participant = p.match(/^\/admin\/participants\/(P\d+)$/);
+  const participant = p.match(/^\/admin\/participants\/(PD?\d+)$/);
   if (participant) {
     if (req.method !== 'DELETE') { res.setHeader('Allow', 'DELETE'); return json(res, 405, { error: 'method not allowed' }); }
     // A cross-origin page cannot send this header without a CORS preflight, which we do not allow.
