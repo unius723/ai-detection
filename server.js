@@ -224,7 +224,9 @@ function serve(p, res) {
   if (p !== '/index.html' && !images.some(i => i.src === p || i.gray === p)) { res.writeHead(404); return res.end('Not found'); }
   const f = path.join(__dirname, decodeURIComponent(p));
   if (!fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end('Not found'); }
-  res.writeHead(200, { 'Content-Type': MIME[path.extname(f).toLowerCase()] || 'application/octet-stream', 'X-Content-Type-Options': 'nosniff' });
+  const headers = { 'Content-Type': MIME[path.extname(f).toLowerCase()] || 'application/octet-stream', 'X-Content-Type-Options': 'nosniff' };
+  if (p.startsWith('/image/')) headers['Cache-Control'] = 'public, max-age=3600';
+  res.writeHead(200, headers);
   fs.createReadStream(f).pipe(res);
 }
 
