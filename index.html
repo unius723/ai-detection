@@ -79,6 +79,7 @@ body:has(#zoom[open]){overflow:hidden}
 .ends{display:flex;justify-content:space-between;font-size:12px;color:var(--mute);margin-top:6px}
 .ends #cur{color:var(--ink);font-weight:500}
 .cnt{font-size:12px;color:var(--mute);text-align:right;margin-top:3px}
+.server-note{margin:5px 0 0;font-size:11px;line-height:1.45;color:var(--mute);text-align:center}
 @media(min-width:820px){.steps{display:flex}.stage{grid-template-columns:1.25fr 1fr;gap:48px;align-items:start}
  .pic{max-height:none}.opt{height:62px}.scale .opt{height:50px}main{padding-top:36px}}
 /* estimate + results */
@@ -118,7 +119,7 @@ th{font-weight:500;color:var(--mute);font-size:12px}
 
 <section id="s2" hidden>
   <div class="stage">
-    <div><div class="count" id="count"></div><div class="dots" id="dots"></div><button type="button" class="pic" id="pic" aria-label="Enlarge image" aria-haspopup="dialog" disabled></button><p class="zoom-hint">Click image to enlarge</p></div>
+    <div><div class="count" id="count"></div><div class="dots" id="dots"></div><button type="button" class="pic" id="pic" aria-label="Enlarge image" aria-haspopup="dialog" disabled></button><p class="zoom-hint">Click image to enlarge</p><p class="server-note">服务器原因，图片加载可能较慢，请稍等一下哦。<br>Due to server limitations, images may load slowly. Please wait a moment.</p></div>
     <div>
       <div class="sec"><h2>This image is…</h2>
         <div class="seg"><button class="opt" data-k="real" aria-pressed="false">Real photo</button><button class="opt" data-k="ai" aria-pressed="false">AI-generated</button></div></div>
