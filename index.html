@@ -11,8 +11,8 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"S
 header{height:50px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--mute)}
 header b{color:var(--ink);font-weight:600}
 .hair{height:2px;background:var(--line)}.hair i{display:block;height:2px;width:0;background:var(--ink);transition:width .25s}
-main{max-width:520px;margin:0 auto;padding:16px 20px 24px}
-main.wide{max-width:980px}
+main{max-width:700px;margin:0 auto;padding:16px 20px 24px}
+main.wide{max-width:1440px}
 h1{margin:0 0 10px;font-weight:300;font-size:clamp(27px,8vw,40px);line-height:1.15;letter-spacing:-.02em}
 h2{margin:0 0 8px;font-size:14px;font-weight:600}
 p{margin:0 0 14px;color:var(--mute);line-height:1.6;font-size:15px}
@@ -64,6 +64,8 @@ body:has(#zoom[open]){overflow:hidden}
 #zoom-stage{width:min(92vw,900px);height:min(78dvh,680px);display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;cursor:grab}
 #zoom-stage.dragging{cursor:grabbing}
 #zoom-stage.dragging img{transition:none}
+@media(hover:hover) and (pointer:fine){#zoom-stage{cursor:default}#zoom-stage.over-image{cursor:zoom-in}#zoom-stage.dragging{cursor:grabbing}}
+@media(min-width:820px) and (hover:hover) and (pointer:fine){#zoom-stage{width:min(88vw,1400px);height:calc(100dvh - 140px)}}
 #zoom img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none;transform:scale(1);transform-origin:center;transition:transform .12s ease-out;will-change:transform}
 #zoom-close{position:absolute;top:14px;right:20px;border:1px solid #999;border-radius:8px;background:#fff;color:var(--ink);padding:10px 16px}
 #zoom-controls{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:6px;border-radius:12px;background:rgba(255,255,255,.94)}
@@ -80,8 +82,14 @@ body:has(#zoom[open]){overflow:hidden}
 .ends #cur{color:var(--ink);font-weight:500}
 .cnt{font-size:12px;color:var(--mute);text-align:right;margin-top:3px}
 .server-note{margin:5px 0 0;font-size:11px;line-height:1.45;color:var(--mute);text-align:center}
-@media(min-width:820px){.steps{display:flex}.stage{grid-template-columns:1.25fr 1fr;gap:48px;align-items:start}
- .pic{max-height:none}.opt{height:62px}.scale .opt{height:50px}main{padding-top:36px}}
+.translation{margin-top:-8px;color:var(--mute);font-size:14px}
+.card-title{font-size:30px}
+@media(min-width:820px){header{height:clamp(50px,4vw,64px);font-size:clamp(13px,1vw,16px)}.steps{display:flex}.steps span{font-size:inherit}
+ h1{font-size:clamp(44px,3.5vw,60px)}p{font-size:clamp(16px,1.15vw,18px)}.meta{font-size:clamp(14px,1.05vw,17px)}
+ label.f,.chk{font-size:clamp(14px,1vw,16px)}input[type=text],textarea{font-size:clamp(17px,1.2vw,20px)}.btn,.opt{font-size:clamp(17px,1.2vw,20px)}
+ .count,.zoom-hint{font-size:clamp(13px,.95vw,15px)}.server-note{font-size:clamp(11px,.85vw,13px)}.translation{font-size:clamp(14px,1vw,17px)}.card-title{font-size:clamp(34px,2.5vw,46px)}.scan{aspect-ratio:16/7.5}main.wide{padding:clamp(28px,4vh,48px) clamp(24px,3vw,48px) 36px}
+ .stage{grid-template-columns:minmax(0,1.35fr) minmax(360px,1fr);gap:clamp(36px,4vw,72px);align-items:start}
+ .pic{height:clamp(440px,68dvh,760px);max-height:none;aspect-ratio:auto}.stage h2{font-size:clamp(16px,1.2vw,20px)}.opt{height:68px}.scale .opt{height:56px}}
 /* estimate + results */
 .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:24px}
 .big{font-size:64px;font-weight:200;letter-spacing:-.03em;text-align:center;margin:4px 0 12px;font-variant-numeric:tabular-nums}
@@ -134,8 +142,9 @@ th{font-weight:500;color:var(--mute);font-size:12px}
 </section>
 
 <section id="s3" hidden><div class="card">
-  <h1 style="font-size:30px">One last question</h1>
+  <h1 class="card-title">One last question</h1>
   <p>What percentage of the images do you think you classified correctly? Choose the closest estimate.</p>
+  <p class="translation">您认为自己正确分类了百分之多少的图片？请选择最接近的估计值。</p>
   <div class="scale" id="est" role="group" aria-label="Estimated percentage correct">
     <button type="button" class="opt" data-est="0" aria-pressed="false">0%</button>
     <button type="button" class="opt" data-est="25" aria-pressed="false">25%</button>
@@ -146,7 +155,7 @@ th{font-weight:500;color:var(--mute);font-size:12px}
   <div class="nav" style="margin-top:20px"><button class="btn secondary" id="estimate-back" type="button">Previous</button><button class="btn" id="submit" disabled>Submit</button></div></div></section>
 
 <section id="s4" hidden><div class="card">
-  <h1 style="font-size:30px">Thank you!</h1>
+  <h1 class="card-title">Thank you!</h1>
   <p>This study compares how well people detect AI images with how well they think they do. To withdraw your data, contact [researcher email] with your ID <b id="pid2"></b>.</p>
   <div class="stats"><div class="stat">Actual<b id="o_act"></b></div><div class="stat">Your guess<b id="o_est"></b></div><div class="stat">Difference (pp)<b id="o_gap"></b></div></div>
   <table><thead><tr><th>Group</th><th>Correct</th><th></th><th>Acc.</th></tr></thead><tbody id="tbl"></tbody></table>
@@ -243,12 +252,21 @@ for(let i=1;i<=5;i++){const b=document.createElement('button');b.className='opt'
 let imageReady=false;
 const zoom=$('#zoom');
 const zoomImage=$('#zoom-image'),zoomStage=$('#zoom-stage');let zoomScale=1,panX=0,panY=0;
+const desktopMagnifier=matchMedia('(hover:hover) and (pointer:fine)').matches;
 function panBounds(){
   const sw=zoomStage.clientWidth,sh=zoomStage.clientHeight,nw=zoomImage.naturalWidth||sw,nh=zoomImage.naturalHeight||sh,fit=Math.min(sw/nw,sh/nh);
   return{x:Math.max(0,(nw*fit*zoomScale-sw)/2),y:Math.max(0,(nh*fit*zoomScale-sh)/2)};
 }
 function drawZoom(){const b=panBounds();panX=Math.max(-b.x,Math.min(b.x,panX));panY=Math.max(-b.y,Math.min(b.y,panY));zoomImage.style.transform=`translate3d(${panX}px,${panY}px,0) scale(${zoomScale})`;$('#zoom-level').textContent=Math.round(zoomScale*100)+'%';}
 function setZoomScale(value){zoomScale=Math.min(4,Math.max(1,value));if(zoomScale===1)panX=panY=0;drawZoom();}
+function magnifyAt(e){
+  const r=zoomStage.getBoundingClientRect(),nw=zoomImage.naturalWidth||r.width,nh=zoomImage.naturalHeight||r.height;
+  const fit=Math.min(r.width/nw,r.height/nh),w=nw*fit,h=nh*fit,left=r.left+(r.width-w)/2,top=r.top+(r.height-h)/2;
+  if(e.clientX<left||e.clientX>left+w||e.clientY<top||e.clientY>top+h){zoomStage.classList.remove('over-image');setZoomScale(1);return;}
+  zoomStage.classList.add('over-image');zoomScale=2;const b=panBounds();
+  panX=-(Math.max(0,Math.min(1,(e.clientX-left)/w))-.5)*2*b.x;
+  panY=-(Math.max(0,Math.min(1,(e.clientY-top)/h))-.5)*2*b.y;drawZoom();
+}
 function enlarge(){
   if(!imageReady||zoom.open)return;
   const img=$('#pic img');zoomImage.src=img.src;zoomImage.style.filter=img.style.filter;setZoomScale(1);
@@ -261,8 +279,10 @@ $('#zoom-out').onclick=()=>setZoomScale(zoomScale-.25);
 zoomStage.ondblclick=()=>setZoomScale(zoomScale===1?2:1);
 zoomStage.onwheel=e=>{e.preventDefault();setZoomScale(zoomScale+(e.deltaY<0?0.25:-0.25));};
 const zoomPointers=new Map();let pinchDistance=0,pinchScale=1;
+zoomStage.onpointerenter=e=>{if(desktopMagnifier)magnifyAt(e);};
+zoomStage.onpointerleave=()=>{if(desktopMagnifier&&!zoomPointers.size){zoomStage.classList.remove('over-image');setZoomScale(1);}};
 zoomStage.onpointerdown=e=>{zoomStage.setPointerCapture(e.pointerId);zoomPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});zoomStage.classList.add('dragging');if(zoomPointers.size===2){const [a,b]=[...zoomPointers.values()];pinchDistance=Math.hypot(a.x-b.x,a.y-b.y);pinchScale=zoomScale;}};
-zoomStage.onpointermove=e=>{const old=zoomPointers.get(e.pointerId);if(!old)return;zoomPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(zoomPointers.size===2&&pinchDistance){const [a,b]=[...zoomPointers.values()];setZoomScale(pinchScale*Math.hypot(a.x-b.x,a.y-b.y)/pinchDistance);}else if(zoomPointers.size===1&&zoomScale>1){panX+=e.clientX-old.x;panY+=e.clientY-old.y;drawZoom();}};
+zoomStage.onpointermove=e=>{const old=zoomPointers.get(e.pointerId);if(!old){if(desktopMagnifier)magnifyAt(e);return;}zoomPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(zoomPointers.size===2&&pinchDistance){const [a,b]=[...zoomPointers.values()];setZoomScale(pinchScale*Math.hypot(a.x-b.x,a.y-b.y)/pinchDistance);}else if(zoomPointers.size===1&&zoomScale>1){panX+=e.clientX-old.x;panY+=e.clientY-old.y;drawZoom();}};
 const endZoomPointer=e=>{zoomPointers.delete(e.pointerId);if(!zoomPointers.size)zoomStage.classList.remove('dragging');};zoomStage.onpointerup=endZoomPointer;zoomStage.onpointercancel=endZoomPointer;
 const ready=()=>$('#next').disabled=!(imageReady&&resp&&conf);
 function reasonMode(){
