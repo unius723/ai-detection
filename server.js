@@ -15,7 +15,7 @@ for (const category of ['portrait', 'landscape']) for (const truth of ['real', '
     if (/_gray\./i.test(file)) continue; // grayscale companion is not an independent stimulus
     const base = file.replace(/\.[^.]+$/, '');
     const gray = files.find(f => f !== file && f.replace(/\.[^.]+$/, '').toLowerCase() === (base + '_gray').toLowerCase());
-    images.push({ id: `${category}_${truth}_${images.filter(i => i.cat === category && i.truth === truth).length + 1}`,
+    images.push({ id: `${category}_${truth}_${images.filter(i => i.cat === category && i.truth === truth).length + 1}`, filename: file, grayFilename: gray || null,
       src: '/image/' + [category, truth === 'ai' ? 'AI' : 'real', file].map(encodeURIComponent).join('/'),
       gray: gray ? '/image/' + [category, truth === 'ai' ? 'AI' : 'real', gray].map(encodeURIComponent).join('/') : null,
       cat: category, truth, realism: '' });
@@ -128,7 +128,8 @@ async function api(p, b, res) {
     if (done.has(b.pid)) return json(res, 409, { error: 'session already completed' });
     // Revisited questions append a new event; aggregation keeps the latest answer for each trial.
     await serialWrite(() => add({ type: 'trial', pid: b.pid, trial: {
-      trial: n, image: stimulus.id, category: stimulus.cat, truth: stimulus.truth, ai_realism: stimulus.realism,
+      trial: n, image: stimulus.id, filename: expected.colour === 'gray' && stimulus.grayFilename ? stimulus.grayFilename : stimulus.filename,
+      category: stimulus.cat, truth: stimulus.truth, ai_realism: stimulus.realism,
       colour: expected.colour, response: t.response, correct: t.response === stimulus.truth ? 1 : 0, confidence: +t.confidence,
       reason, rt_choice_ms: +t.rt_choice_ms || 0, rt_total_ms: +t.rt_total_ms || 0, shown_at: str(t.shown_at, 40) } }));
     return json(res, 200, { ok: 1 });
@@ -182,7 +183,7 @@ function csvParticipants() {
 }
 function csvTrials() {
   const rows = []; for (const q of build()) for (const t of q.trials) rows.push({ participant_id: q.pid, major: q.major, ...t });
-  return csv(['participant_id', 'major', 'trial', 'image', 'category', 'truth', 'ai_realism', 'colour', 'response', 'correct', 'confidence', 'reason', 'rt_choice_ms', 'rt_total_ms', 'shown_at'], rows);
+  return csv(['participant_id', 'major', 'trial', 'image', 'filename', 'category', 'truth', 'ai_realism', 'colour', 'response', 'correct', 'confidence', 'reason', 'rt_choice_ms', 'rt_total_ms', 'shown_at'], rows);
 }
 function authed(req) {
   const h = req.headers.authorization || '';

@@ -91,7 +91,7 @@ async function load() {
     const dt = el('tr'), td = el('td', 'in'); td.colSpan = 14; dt.append(td); dt.hidden = !open.has(q.pid); tb.append(dt);
     const t = el('table'), h = el('tr');
     ['#', 'Image', 'Colour', 'Truth', 'Response', 'Correct', 'Conf.', 'RT (s)', 'Reason'].forEach(x => h.append(el('th', '', x))); t.append(h);
-    q.trials.forEach(x => { const r = el('tr'); [x.trial, x.image, x.colour, x.truth, x.response, x.correct ? '✓' : '✗', x.confidence, (x.rt_total_ms / 1000).toFixed(1), x.reason].forEach(v => r.append(el('td', '', v))); t.append(r); });
+    q.trials.forEach(x => { const r = el('tr'); [x.trial, x.filename || x.image, x.colour, x.truth, x.response, x.correct ? '✓' : '✗', x.confidence, (x.rt_total_ms / 1000).toFixed(1), x.reason].forEach(v => r.append(el('td', '', v))); t.append(r); });
     td.append(t);
     tr.onclick = () => { dt.hidden = !dt.hidden; dt.hidden ? open.delete(q.pid) : open.add(q.pid); };
   }
